@@ -6,7 +6,7 @@ import {
   Users, UserPlus, Trash2, ShieldOff, ShieldCheck, ChevronDown,
   ChevronUp, X, Eye, EyeOff, Search, Check,
 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 

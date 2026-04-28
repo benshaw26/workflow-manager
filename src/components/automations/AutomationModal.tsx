@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Building2, FileText, PenTool, MessageSquare, Mail, Inbox, CheckCircle2, ArrowRight } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import type { Automation } from '@/types'
 
 const iconMap: Record<string, React.ElementType> = {

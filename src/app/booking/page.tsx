@@ -12,7 +12,7 @@ import { Footer } from '@/components/layout/Footer'
 import { BookingCalendar } from '@/components/booking/BookingCalendar'
 import { TimeSlotPicker } from '@/components/booking/TimeSlotPicker'
 import { BookingProgress } from '@/components/booking/BookingProgress'
-import { Button } from '@/components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/Input'
 import { AUTOMATIONS } from '@/lib/constants'
 
