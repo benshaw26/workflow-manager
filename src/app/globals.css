@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-bms-dark text-bms-text font-sans;
+    overflow-x: hidden;
+  }
+
+  /* All headings use the display (Space Grotesk) font */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), system-ui, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bms-darker;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-bms-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-bms-cyan/40;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-bms-cyan to-bms-purple bg-clip-text text-transparent;
+  }
+
+  .text-gradient-warm {
+    @apply bg-gradient-to-r from-bms-amber to-bms-cyan bg-clip-text text-transparent;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 20px rgba(6, 182, 212, 0.45);
+  }
+
+  .glass {
+    @apply bg-bms-card/80 backdrop-blur-md border border-bms-border;
+  }
+
+  /* Monospaced numerics for stats and metrics */
+  .num {
+    font-family: var(--font-mono), monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}

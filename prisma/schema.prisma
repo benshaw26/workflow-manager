@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  name               String?
+  username           String?             @unique
+  email              String              @unique
+  emailVerified      DateTime?
+  image              String?
+  password           String?
+  role               String              @default("CLIENT")
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  accounts           Account[]
+  analyticsSnapshots AnalyticsSnapshot[]
+  bookings           Booking[]
+  emailCampaigns     EmailCampaign[]
+  scheduledPosts     ScheduledPost[]
+  sessions           Session[]
+  userAutomations    UserAutomation[]
+
+  @@map("users")
+}
+
+model UserAutomation {
+  id           String   @id @default(cuid())
+  userId       String
+  automationId String
+  grantedAt    DateTime @default(now())
+  grantedBy    String   @default("system")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, automationId])
+  @@map("user_automations")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model AnalyticsSnapshot {
+  id                String   @id @default(cuid())
+  userId            String
+  date              DateTime @default(now())
+  automationRuns    Int      @default(0)
+  itemsAnalyzed     Int      @default(0)
+  successfulOutputs Int      @default(0)
+  failedOutputs     Int      @default(0)
+  timeSavedMinutes  Int      @default(0)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("analytics_snapshots")
+}
+
+model EmailCampaign {
+  id           String    @id @default(cuid())
+  userId       String
+  campaignName String
+  fromName     String
+  audience     String
+  subjectA     String
+  subjectB     String
+  body         String
+  tone         String
+  sendTime     String
+  scheduledAt  DateTime?
+  status       String    @default("DRAFT")
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_campaigns")
+}
+
+model ScheduledPost {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    String
+  content     String
+  hashtags    String   @default("[]")
+  scheduledAt DateTime
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_posts")
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  email       String
+  company     String?
+  phone       String?
+  service     String
+  message     String?
+  scheduledAt DateTime
+  status      String   @default("PENDING")
+  meetingUrl  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@map("bookings")
+}
