@@ -19,7 +19,6 @@
     "@anthropic-ai/sdk": "^0.80.0",
     "@auth/prisma-adapter": "^2.7.2",
     "@hookform/resolvers": "^3.9.1",
-    "@next/swc-win32-x64-msvc": "^16.2.1",
     "@prisma/client": "^5.22.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@react-three/drei": "^9.114.3",
