@@ -1,182 +1,189 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-import { StatCard } from '@/components/dashboard/StatCard'
-import { AutomationRunsChart } from '@/components/dashboard/AutomationRunsChart'
-import { OutputSuccessChart } from '@/components/dashboard/OutputSuccessChart'
-import { InsightsPanel } from '@/components/dashboard/InsightsPanel'
-import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
-import { Zap, Target, CheckCircle2, Clock, BookOpen } from 'lucide-react'
+import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import { SeedButton } from './SeedButton'
-import type { AnalyticsData } from '@/types'
+import {
+  Globe, Bot, Megaphone, FileText, Mail, Inbox, MessageSquare,
+  Calendar, CheckCircle2, Clock, Zap, ArrowRight, Headphones,
+} from 'lucide-react'
 
-async function getAnalytics(userId: string): Promise<AnalyticsData> {
-  // In production, use absolute URL or direct DB call
-  // For simplicity here we replicate the analytics logic inline
-  const { prisma } = await import('@/lib/prisma')
-  const { subDays, format, startOfDay } = await import('date-fns')
-
-  const thirtyDaysAgo = subDays(new Date(), 30)
-  const snapshots = await prisma.analyticsSnapshot.findMany({
-    where: { userId, date: { gte: startOfDay(thirtyDaysAgo) } },
-    orderBy: { date: 'asc' },
-  })
-
-  const seriesMap = new Map<string, { runs: number; success: number; failed: number }>()
-  for (let i = 29; i >= 0; i--) {
-    const d = format(subDays(new Date(), i), 'MMM dd')
-    seriesMap.set(d, { runs: 0, success: 0, failed: 0 })
-  }
-  for (const s of snapshots) {
-    const key = format(new Date(s.date), 'MMM dd')
-    seriesMap.set(key, { runs: s.automationRuns, success: s.successfulOutputs, failed: s.failedOutputs })
-  }
-
-  const series = Array.from(seriesMap.entries()).map(([date, vals]) => ({ date, ...vals }))
-  const totals = snapshots.reduce(
-    (acc, s) => ({
-      automationRuns: acc.automationRuns + s.automationRuns,
-      itemsAnalyzed: acc.itemsAnalyzed + s.itemsAnalyzed,
-      successfulOutputs: acc.successfulOutputs + s.successfulOutputs,
-      failedOutputs: acc.failedOutputs + s.failedOutputs,
-      timeSavedHours: acc.timeSavedHours + s.timeSavedMinutes / 60,
-    }),
-    { automationRuns: 0, itemsAnalyzed: 0, successfulOutputs: 0, failedOutputs: 0, timeSavedHours: 0 }
-  )
-  totals.timeSavedHours = Math.round(totals.timeSavedHours * 10) / 10
-
-  const insights: string[] = []
-  if (totals.automationRuns > 0) {
-    const successRate = Math.round((totals.successfulOutputs / totals.automationRuns) * 100)
-    insights.push(`Your automations achieved a ${successRate}% success rate over the last 30 days.`)
-    const peak = series.reduce((max, s) => (s.runs > max.runs ? s : max), series[0])
-    if (peak?.runs > 0) insights.push(`Peak performance day: ${peak.date} with ${peak.runs} runs.`)
-    if (totals.itemsAnalyzed > 0) insights.push(`${totals.itemsAnalyzed.toLocaleString()} items analysed, saving ~${totals.timeSavedHours} hours of manual work.`)
-    const recentRuns = series.slice(-7).reduce((a, s) => a + s.runs, 0)
-    const prevRuns = series.slice(-14, -7).reduce((a, s) => a + s.runs, 0)
-    if (prevRuns > 0) {
-      const change = Math.round(((recentRuns - prevRuns) / prevRuns) * 100)
-      insights.push(change >= 0
-        ? `Automation volume up ${change}% this week vs last week — great momentum!`
-        : `Volume down ${Math.abs(change)}% this week. Consider scheduling more runs.`)
-    }
-  } else {
-    insights.push('No automation runs yet. Seed demo data or go live to see insights here!')
-    insights.push('Once active, your dashboard will show real-time trends and performance analytics.')
-  }
-
-  return { totals, series, insights }
+const SERVICE_META: Record<string, { icon: React.ElementType; color: string; desc: string; category: string }> = {
+  'property-analysis':  { icon: Globe,        color: '#00d4ff', desc: 'AI scans and scores property listings for investment potential.', category: 'Analysis' },
+  'invoice-creation':   { icon: FileText,     color: '#a855f7', desc: 'Auto-generates professional invoices from your data in seconds.', category: 'Finance' },
+  'content-creation':   { icon: Megaphone,    color: '#00d4ff', desc: 'AI-written blogs, social posts, and ad copy at scale.', category: 'Marketing' },
+  'ai-chatbot':         { icon: Bot,          color: '#a855f7', desc: '24/7 intelligent customer support agent for your business.', category: 'Support' },
+  'email-marketing':    { icon: Mail,         color: '#00d4ff', desc: 'Personalised email campaigns built and sent automatically.', category: 'Marketing' },
+  'email-response':     { icon: Inbox,        color: '#a855f7', desc: 'Reads, understands and replies to incoming emails for you.', category: 'Support' },
 }
 
-async function getRecentActivity(userId: string) {
-  const { prisma } = await import('@/lib/prisma')
-  const runs = await prisma.analyticsSnapshot.findMany({
+async function getUserServices(userId: string) {
+  const automations = await prisma.userAutomation.findMany({
     where: { userId },
-    orderBy: { date: 'desc' },
-    take: 10,
+    orderBy: { grantedAt: 'asc' },
   })
-  // Mock recent activity items from snapshots
-  return runs.map((r) => ({
-    id: r.id,
-    type: 'PROPERTY_ANALYSIS',
-    status: r.successfulOutputs > 0 ? 'SUCCESS' : 'FAILED',
-    createdAt: r.date.toISOString(),
-  }))
+  return automations
 }
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
 
-  // Admins have their own panel
   if (session?.user?.role === 'ADMIN') {
     redirect('/admin')
   }
 
   const userId = session!.user.id
-
-  const [analytics, activity] = await Promise.all([
-    getAnalytics(userId),
-    getRecentActivity(userId),
-  ])
-
-  const hasData = analytics.totals.automationRuns > 0
+  const services = await getUserServices(userId)
+  const firstName = session?.user?.name?.split(' ')[0] ?? session?.user?.username ?? 'there'
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-8 max-w-6xl">
+
       {/* Welcome header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-bms-text">
-            Welcome back, {session?.user?.name?.split(' ')[0] ?? 'Client'} 👋
-          </h2>
-          <p className="text-bms-muted text-sm mt-1">Here&apos;s your automation performance overview</p>
+          <h1 className="text-2xl font-bold text-bms-text">
+            Welcome back, {firstName} 👋
+          </h1>
+          <p className="text-bms-muted text-sm mt-1">
+            Here&apos;s an overview of your active BMS Services.
+          </p>
         </div>
-        {!hasData && <SeedButton />}
+        <Link
+          href="/booking"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-bms-purple/10 border border-bms-purple/30 text-bms-purple-light rounded-xl text-sm font-medium hover:bg-bms-purple/20 transition-colors"
+        >
+          <Calendar className="w-4 h-4" />
+          Book a call
+        </Link>
       </div>
 
-      {!hasData && (
-        <div className="bg-bms-cyan/5 border border-bms-cyan/20 rounded-xl p-4 flex items-start gap-3">
-          <BookOpen className="w-5 h-5 text-bms-cyan flex-shrink-0 mt-0.5" />
+      {/* Summary bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="bg-bms-card border border-bms-border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-bms-cyan/10 flex items-center justify-center">
+            <Zap className="w-4 h-4 text-bms-cyan" />
+          </div>
           <div>
-            <p className="text-bms-text text-sm font-medium">No data yet — load demo analytics</p>
-            <p className="text-bms-muted text-xs mt-1">
-              Click &quot;Load Demo Data&quot; to populate 30 days of mock analytics, or{' '}
-              <Link href="/booking" className="text-bms-cyan hover:underline">book a demo</Link>{' '}
-              to get your real automations running.
-            </p>
+            <p className="text-xl font-bold text-bms-text">{services.length}</p>
+            <p className="text-xs text-bms-muted">Active Service{services.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
-      )}
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Automation Runs"
-          value={analytics.totals.automationRuns}
-          trend={12}
-          icon={<Zap className="w-5 h-5" />}
-          color="cyan"
-        />
-        <StatCard
-          title="Items Analysed"
-          value={analytics.totals.itemsAnalyzed}
-          trend={8}
-          icon={<Target className="w-5 h-5" />}
-          color="purple"
-        />
-        <StatCard
-          title="Successful Outputs"
-          value={analytics.totals.successfulOutputs}
-          trend={5}
-          icon={<CheckCircle2 className="w-5 h-5" />}
-          color="cyan"
-        />
-        <StatCard
-          title="Hours Saved"
-          value={analytics.totals.timeSavedHours}
-          suffix="h"
-          trend={15}
-          icon={<Clock className="w-5 h-5" />}
-          color="purple"
-        />
-      </div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <AutomationRunsChart data={analytics.series} />
+        <div className="bg-bms-card border border-bms-border rounded-xl p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-bms-purple/10 flex items-center justify-center">
+            <CheckCircle2 className="w-4 h-4 text-bms-purple-light" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-bms-text">Live</p>
+            <p className="text-xs text-bms-muted">Account Status</p>
+          </div>
         </div>
-        <div>
-          <OutputSuccessChart totals={analytics.totals} />
+        <div className="bg-bms-card border border-bms-border rounded-xl p-4 flex items-center gap-3 col-span-2 sm:col-span-1">
+          <div className="w-9 h-9 rounded-lg bg-bms-cyan/10 flex items-center justify-center">
+            <Clock className="w-4 h-4 text-bms-cyan" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-bms-text">24/7</p>
+            <p className="text-xs text-bms-muted">Automation Uptime</p>
+          </div>
         </div>
       </div>
 
-      {/* Insights + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <InsightsPanel insights={analytics.insights} />
-        <ActivityFeed items={activity} />
+      {/* Services section */}
+      <div>
+        <h2 className="text-base font-semibold text-bms-text mb-4">Your Services</h2>
+
+        {services.length === 0 ? (
+          /* No services yet */
+          <div className="bg-bms-card border border-bms-border rounded-2xl p-10 text-center">
+            <MessageSquare className="w-10 h-10 mx-auto mb-4 text-bms-muted opacity-40" />
+            <p className="text-bms-text font-medium mb-1">No services active yet</p>
+            <p className="text-bms-muted text-sm mb-5">
+              Book a discovery call and we&apos;ll set you up with the right AI services for your business.
+            </p>
+            <Link
+              href="/booking"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-bms-purple text-white rounded-xl text-sm font-medium hover:bg-bms-purple/90 transition-colors"
+            >
+              Book a free call
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {services.map((s) => {
+              const meta = SERVICE_META[s.automationId]
+              if (!meta) return null
+              const Icon = meta.icon
+              return (
+                <div
+                  key={s.id}
+                  className="bg-bms-card border border-bms-border rounded-2xl p-5 hover:border-bms-cyan/30 transition-all duration-300 group flex flex-col gap-4"
+                >
+                  {/* Icon + badge */}
+                  <div className="flex items-start justify-between">
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center"
+                      style={{ background: meta.color + '18' }}
+                    >
+                      <Icon className="w-5 h-5" style={{ color: meta.color }} />
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs text-emerald-400 font-medium">Active</span>
+                    </div>
+                  </div>
+
+                  {/* Label + category */}
+                  <div className="flex-1">
+                    <span className="text-xs font-medium text-bms-muted uppercase tracking-wider">{meta.category}</span>
+                    <h3 className="text-bms-text font-semibold text-sm mt-0.5 mb-1.5">
+                      {s.automationId
+                        .split('-')
+                        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(' ')}
+                    </h3>
+                    <p className="text-bms-muted text-xs leading-relaxed">{meta.desc}</p>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="pt-3 border-t border-bms-border flex items-center justify-between">
+                    <span className="text-xs text-bms-muted">
+                      Since {new Date(s.grantedAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                    </span>
+                    <Link
+                      href={`/my-automations/${s.automationId}`}
+                      className="text-xs font-medium flex items-center gap-1 hover:gap-1.5 transition-all"
+                      style={{ color: meta.color }}
+                    >
+                      Open <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Support CTA */}
+      <div className="bg-gradient-to-r from-bms-purple/10 to-bms-cyan/10 border border-bms-border rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="w-11 h-11 rounded-xl bg-bms-purple/15 flex items-center justify-center flex-shrink-0">
+          <Headphones className="w-5 h-5 text-bms-purple-light" />
+        </div>
+        <div className="flex-1">
+          <p className="text-bms-text font-semibold text-sm">Need help or want to add a service?</p>
+          <p className="text-bms-muted text-xs mt-0.5">Get in touch and I&apos;ll sort it — usually same day.</p>
+        </div>
+        <Link
+          href="/booking"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-bms-purple text-white rounded-xl text-sm font-medium hover:bg-bms-purple/90 transition-colors whitespace-nowrap"
+        >
+          Get support
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
     </div>
   )
 }
