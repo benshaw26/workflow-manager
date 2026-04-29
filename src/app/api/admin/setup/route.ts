@@ -1,0 +1,71 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import bcrypt from 'bcryptjs'
+
+const ALL_AUTOMATION_IDS = [
+  'property-analysis',
+  'invoice-creation',
+  'content-creation',
+  'ai-chatbot',
+  'email-marketing',
+  'email-response',
+]
+
+// One-time admin setup endpoint.
+// Protected by SETUP_SECRET env var — pass it as ?secret=<value> in the URL.
+// Once an admin exists this route returns 409 and does nothing.
+export async function GET(req: Request) {
+  const secret = process.env.SETUP_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'SETUP_SECRET env var not set' }, { status: 500 })
+  }
+
+  const { searchParams } = new URL(req.url)
+  if (searchParams.get('secret') !== secret) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Check if admin already exists
+  const existing = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
+  if (existing) {
+    return NextResponse.json({ message: 'Admin already exists', email: existing.email }, { status: 409 })
+  }
+
+  const adminEmail    = process.env.ADMIN_EMAIL    ?? 'shawben381@gmail.com'
+  const adminPassword = process.env.ADMIN_PASSWORD ?? 'BmsAdmin2025!'
+  const adminName     = process.env.ADMIN_NAME     ?? 'Ben'
+  const adminUsername = process.env.ADMIN_USERNAME ?? 'admin'
+
+  const hashed = await bcrypt.hash(adminPassword, 12)
+
+  const user = await prisma.user.upsert({
+    where: { email: adminEmail },
+    create: {
+      name:     adminName,
+      username: adminUsername,
+      email:    adminEmail,
+      password: hashed,
+      role:     'ADMIN',
+      isActive: true,
+    },
+    update: {
+      role:     'ADMIN',
+      isActive: true,
+      password: hashed,
+    },
+  })
+
+  for (const automationId of ALL_AUTOMATION_IDS) {
+    await prisma.userAutomation.upsert({
+      where: { userId_automationId: { userId: user.id, automationId } },
+      create: { userId: user.id, automationId, grantedBy: 'setup-api' },
+      update: {},
+    })
+  }
+
+  return NextResponse.json({
+    message: 'Admin account created successfully',
+    email: user.email,
+    note: 'Delete or disable this endpoint after use.',
+  })
+}
