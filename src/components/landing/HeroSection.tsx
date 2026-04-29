@@ -1,192 +1,299 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { motion, useScroll, useTransform } from 'framer-motion'
-import { ArrowRight, ChevronDown } from 'lucide-react'
-import { useRef } from 'react'
-import { LiquidButton } from '@/components/ui/liquid-glass-button'
-
-const MicrochipScene = dynamic(() => import('@/components/three/MicrochipScene'), {
-  ssr: false,
-  loading: () => null,
-})
-
-const WebGLShader = dynamic(
-  () => import('@/components/ui/web-gl-shader').then((m) => m.WebGLShader),
-  { ssr: false, loading: () => null }
-)
 
 export function HeroSection() {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({ target: containerRef, offset: ['start start', 'end start'] })
-  const chipY  = useTransform(scrollYProgress, [0, 1], [0, 160])
-  const textY  = useTransform(scrollYProgress, [0, 1], [0, 60])
-  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0])
-
   return (
-    <section
-      ref={containerRef}
-      className="relative min-h-screen flex items-center bg-bms-dark"
-    >
-      {/* White wave shader — behind everything */}
-      <WebGLShader />
+    <section style={{
+      position: 'relative',
+      width: '100%',
+      minHeight: '100vh',
+      background: '#0d0614',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
 
-      {/* Noise grain */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")`,
-          zIndex: 1,
-        }}
-      />
+      {/* ── Keyframe styles ─────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes bloom1 {
+          0%   { transform: translate(0px, 0px) scale(1); }
+          100% { transform: translate(-40px, 30px) scale(1.15); }
+        }
+        @keyframes bloom2 {
+          0%   { transform: translate(0px, 0px) scale(1); }
+          100% { transform: translate(30px, -50px) scale(1.2); }
+        }
+        @keyframes bloom3 {
+          0%   { transform: translate(0px, 0px) scale(1); }
+          100% { transform: translate(-20px, 40px) scale(1.1); }
+        }
+        @keyframes tri1 {
+          0%, 100% { opacity: 0.06; }
+          50%       { opacity: 0.22; }
+        }
+        @keyframes tri2 {
+          0%, 100% { opacity: 0.08; }
+          50%       { opacity: 0.20; }
+        }
+        @keyframes tri3 {
+          0%, 100% { opacity: 0.05; }
+          50%       { opacity: 0.18; }
+        }
+        @keyframes tri4 {
+          0%, 100% { opacity: 0.07; }
+          50%       { opacity: 0.22; }
+        }
+        @keyframes tri5 {
+          0%, 100% { opacity: 0.06; }
+          50%       { opacity: 0.16; }
+        }
+        @keyframes tri6 {
+          0%, 100% { opacity: 0.09; }
+          50%       { opacity: 0.21; }
+        }
+        @keyframes tri7 {
+          0%, 100% { opacity: 0.06; }
+          50%       { opacity: 0.19; }
+        }
+        .bms-bloom1 {
+          animation: bloom1 9s ease-in-out infinite alternate;
+          animation-delay: 0s;
+        }
+        .bms-bloom2 {
+          animation: bloom2 11s ease-in-out infinite alternate;
+          animation-delay: -3s;
+        }
+        .bms-bloom3 {
+          animation: bloom3 8s ease-in-out infinite alternate;
+          animation-delay: -5s;
+        }
+        .bms-nav-link {
+          color: rgba(255,255,255,0.75);
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+        .bms-nav-link:hover { color: #fff; }
+        .bms-btn-primary {
+          background: #7b2ff7;
+          color: #fff;
+          border: none;
+          padding: 12px 28px;
+          border-radius: 8px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-block;
+          transition: background 0.2s, transform 0.15s;
+        }
+        .bms-btn-primary:hover { background: #6a25e0; transform: translateY(-1px); }
+        .bms-btn-outline {
+          background: transparent;
+          color: #fff;
+          border: 1.5px solid rgba(255,255,255,0.4);
+          padding: 12px 28px;
+          border-radius: 8px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-block;
+          transition: border-color 0.2s, background 0.2s, transform 0.15s;
+        }
+        .bms-btn-outline:hover {
+          border-color: rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.06);
+          transform: translateY(-1px);
+        }
+        .bms-btn-teal {
+          background: transparent;
+          color: #00d4d4;
+          border: 1.5px solid #00d4d4;
+          padding: 8px 18px;
+          border-radius: 7px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-block;
+          transition: background 0.2s;
+          white-space: nowrap;
+        }
+        .bms-btn-teal:hover { background: rgba(0,212,212,0.1); }
+      `}</style>
 
-      {/* ── 3D chip — top-right, 45% width, 75% height ── */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.88 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.4, ease: 'easeOut' }}
-        className="absolute top-0 right-0 w-[55%] h-[90%] pointer-events-none"
-        style={{ zIndex: 2, y: chipY }}
+      {/* ── Bloom layers ────────────────────────────────────────────────── */}
+      {/* Purple bloom — top-right */}
+      <div className="bms-bloom1" style={{
+        position: 'absolute',
+        top: '-10%',
+        right: '-5%',
+        width: '55%',
+        height: '70%',
+        background: 'rgba(160,0,255,0.35)',
+        borderRadius: '50%',
+        filter: 'blur(80px)',
+        zIndex: 1,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Fire-orange bloom — mid-right */}
+      <div className="bms-bloom2" style={{
+        position: 'absolute',
+        top: '30%',
+        right: '5%',
+        width: '35%',
+        height: '45%',
+        background: 'rgba(255,60,0,0.2)',
+        borderRadius: '50%',
+        filter: 'blur(60px)',
+        zIndex: 1,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Blue bloom — center-right */}
+      <div className="bms-bloom3" style={{
+        position: 'absolute',
+        top: '20%',
+        right: '20%',
+        width: '30%',
+        height: '40%',
+        background: 'rgba(0,140,255,0.2)',
+        borderRadius: '50%',
+        filter: 'blur(50px)',
+        zIndex: 1,
+        pointerEvents: 'none',
+      }} />
+
+      {/* ── Low-poly SVG mesh ────────────────────────────────────────────── */}
+      <svg
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none' }}
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
       >
-        <MicrochipScene />
-      </motion.div>
+        {/* Triangles — breathing opacity */}
+        <polygon points="0,0 520,0 280,320"         fill="rgba(160,0,255,1)"  style={{ animation: 'tri1 6s ease-in-out infinite', animationDelay: '0s',    opacity: 0.06 }} />
+        <polygon points="520,0 1440,0 900,260"       fill="rgba(255,60,0,1)"   style={{ animation: 'tri2 6s ease-in-out infinite', animationDelay: '-1.2s', opacity: 0.08 }} />
+        <polygon points="0,0 280,320 0,600"          fill="rgba(0,140,255,1)"  style={{ animation: 'tri3 6s ease-in-out infinite', animationDelay: '-2.1s', opacity: 0.05 }} />
+        <polygon points="280,320 900,260 620,600"    fill="rgba(160,0,255,1)"  style={{ animation: 'tri4 6s ease-in-out infinite', animationDelay: '-0.7s', opacity: 0.07 }} />
+        <polygon points="900,260 1440,0 1440,500"    fill="rgba(255,60,0,1)"   style={{ animation: 'tri5 6s ease-in-out infinite', animationDelay: '-3.0s', opacity: 0.06 }} />
+        <polygon points="0,600 620,600 280,900"      fill="rgba(0,140,255,1)"  style={{ animation: 'tri6 6s ease-in-out infinite', animationDelay: '-1.8s', opacity: 0.09 }} />
+        <polygon points="620,600 1440,500 1440,900"  fill="rgba(160,0,255,1)"  style={{ animation: 'tri7 6s ease-in-out infinite', animationDelay: '-4.2s', opacity: 0.06 }} />
 
-      {/* Right-side glow that blooms from the chip */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 3 }}
-      >
-        <div className="absolute right-0 top-0 w-[50vw] h-[70vh] bg-bms-cyan/5 blur-[120px] rounded-full" />
-        <div className="absolute right-1/4 top-1/4 w-[30vw] h-[30vh] bg-bms-purple/4 blur-[100px] rounded-full" />
-      </div>
+        {/* Edge lines */}
+        <line x1="0"   y1="0"   x2="520" y2="0"   stroke="rgba(200,108,255,0.12)" strokeWidth="0.5" />
+        <line x1="520" y1="0"   x2="280" y2="320"  stroke="rgba(200,108,255,0.10)" strokeWidth="0.5" />
+        <line x1="280" y1="320" x2="0"   y2="0"    stroke="rgba(0,140,255,0.12)"   strokeWidth="0.5" />
+        <line x1="520" y1="0"   x2="1440" y2="0"   stroke="rgba(255,60,0,0.10)"    strokeWidth="0.5" />
+        <line x1="1440" y1="0"  x2="900" y2="260"  stroke="rgba(255,60,0,0.12)"    strokeWidth="0.5" />
+        <line x1="900" y1="260" x2="520" y2="0"    stroke="rgba(200,108,255,0.10)" strokeWidth="0.5" />
+        <line x1="280" y1="320" x2="900" y2="260"  stroke="rgba(200,108,255,0.10)" strokeWidth="0.5" />
+        <line x1="900" y1="260" x2="620" y2="600"  stroke="rgba(255,60,0,0.10)"    strokeWidth="0.5" />
+        <line x1="620" y1="600" x2="280" y2="320"  stroke="rgba(0,140,255,0.12)"   strokeWidth="0.5" />
+        <line x1="900" y1="260" x2="1440" y2="500" stroke="rgba(255,60,0,0.12)"    strokeWidth="0.5" />
+        <line x1="1440" y1="500" x2="1440" y2="0"  stroke="rgba(200,108,255,0.08)" strokeWidth="0.5" />
+        <line x1="0"   y1="600" x2="620" y2="600"  stroke="rgba(0,140,255,0.12)"   strokeWidth="0.5" />
+        <line x1="620" y1="600" x2="1440" y2="500" stroke="rgba(255,60,0,0.10)"    strokeWidth="0.5" />
+        <line x1="0"   y1="600" x2="280" y2="900"  stroke="rgba(0,140,255,0.10)"   strokeWidth="0.5" />
 
-      {/* Left text fade — gradient mask so text reads cleanly over chip */}
-      <div
-        className="absolute inset-y-0 left-0 w-[55%] pointer-events-none"
-        style={{ zIndex: 4, background: 'linear-gradient(to right, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.75) 65%, transparent 100%)' }}
-      />
+        {/* Vertex dots */}
+        <circle cx="280"  cy="320" r="2.5" fill="#a000ff" opacity="0.5" />
+        <circle cx="520"  cy="0"   r="2"   fill="#c86cff" opacity="0.45" />
+        <circle cx="900"  cy="260" r="2.5" fill="#ff3c00" opacity="0.4" />
+        <circle cx="620"  cy="600" r="2"   fill="#008cff" opacity="0.45" />
+        <circle cx="1440" cy="500" r="2"   fill="#ff3c00" opacity="0.35" />
+        <circle cx="0"    cy="600" r="2"   fill="#008cff" opacity="0.3" />
+        <circle cx="280"  cy="900" r="2"   fill="#a000ff" opacity="0.3" />
+      </svg>
 
-      {/* Bottom fade */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-bms-dark to-transparent pointer-events-none"
-        style={{ zIndex: 4 }}
-      />
+      {/* ── Nav bar ──────────────────────────────────────────────────────── */}
+      <nav style={{
+        position: 'relative',
+        zIndex: 10,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '24px 48px',
+        flexWrap: 'wrap',
+        gap: '16px',
+      }}>
+        {/* Logo */}
+        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '18px',
+            fontWeight: 800,
+            color: '#fff',
+            letterSpacing: '-0.02em',
+          }}>
+            BMS{' '}
+            <span style={{ color: '#c86cff' }}>Services</span>
+          </span>
+        </Link>
 
-      {/* ── Text content — overlaid on top ── */}
-      <div
-        className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20"
-        style={{ zIndex: 5 }}
-      >
-        <motion.div style={{ y: textY, opacity }} className="max-w-2xl">
+        {/* Centre links */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <Link href="/"            className="bms-nav-link">Home</Link>
+          <Link href="/automations" className="bms-nav-link">Automations</Link>
+          <Link href="/booking"     className="bms-nav-link">Book a Demo</Link>
+        </div>
 
-          {/* Status pill */}
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-bms-border bg-bms-card/60 backdrop-blur-sm mb-8"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            <span className="text-xs font-medium text-bms-muted">Accepting new clients</span>
-            <span className="w-px h-3 bg-bms-border" />
-            <span className="text-xs font-semibold text-bms-cyan">AI Growth Partner</span>
-          </motion.div>
+        {/* Right CTAs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link href="/login"   className="bms-nav-link">Sign In</Link>
+          <Link href="/signup"  className="bms-nav-link">Sign Up</Link>
+          <Link href="/booking" className="bms-btn-teal">Book Demo</Link>
+        </div>
+      </nav>
 
+      {/* ── Hero content ─────────────────────────────────────────────────── */}
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 48px 80px',
+        maxWidth: '720px',
+      }}>
+        <div>
           {/* Headline */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.7 }}
-          >
-            <h1 className="text-[clamp(2.8rem,7vw,5.5rem)] font-black leading-[0.95] tracking-tight mb-6">
-              <span className="block text-bms-text">Your business.</span>
-              <span className="block relative">
-                <span className="bg-gradient-to-r from-bms-cyan via-[#4af7ff] to-bms-purple bg-clip-text text-transparent">
-                  Supercharged
-                </span>
-                <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ delay: 0.9, duration: 0.6, ease: 'easeOut' }}
-                  className="absolute -bottom-1 left-0 h-px bg-gradient-to-r from-bms-cyan to-transparent origin-left"
-                  style={{ width: '70%' }}
-                />
-              </span>
-              <span className="block text-bms-text">by AI.</span>
-            </h1>
-          </motion.div>
+          <h1 style={{
+            margin: '0 0 24px',
+            lineHeight: 1.05,
+            fontWeight: 900,
+            letterSpacing: '-0.03em',
+            fontSize: 'clamp(52px, 7vw, 72px)',
+          }}>
+            <span style={{ display: 'block', color: '#ffffff' }}>Your business.</span>
+            <span style={{ display: 'block', color: '#c86cff' }}>Supercharged</span>
+            <span style={{ display: 'block', color: '#ffffff' }}>by AI.</span>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-            className="text-bms-muted text-lg leading-relaxed mb-10 max-w-lg"
-          >
-            I help businesses grow smarter with AI — from custom websites and marketing automation to social media strategy and intelligent lead generation. Less manual work, more results.
-          </motion.p>
+          {/* Subtext */}
+          <p style={{
+            margin: '0 0 36px',
+            fontSize: '18px',
+            lineHeight: 1.7,
+            color: 'rgba(255,255,255,0.6)',
+            maxWidth: '540px',
+            fontWeight: 400,
+          }}>
+            I help businesses grow smarter with AI — from custom websites and marketing
+            automation to social media strategy and intelligent lead generation.
+            Less manual work, more results.
+          </p>
 
           {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55, duration: 0.5 }}
-            className="flex flex-wrap items-center gap-4 mb-12"
-          >
-            <Link href="/booking">
-              <LiquidButton size="xl" className="border border-bms-cyan/30 text-bms-cyan font-bold tracking-wide">
-                Book a Free Demo
-              </LiquidButton>
-            </Link>
-            <Link
-              href="/automations"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-bms-muted hover:text-bms-text transition-colors group"
-            >
-              See what I offer
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </motion.div>
-
-          {/* Micro metrics */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.75, duration: 0.6 }}
-            className="flex items-center gap-6 pt-8 border-t border-bms-border/60"
-          >
-            {[
-              { value: '500+', label: 'Daily runs' },
-              { value: '98%',  label: 'Success rate' },
-              { value: '50+',  label: 'Clients' },
-            ].map((m) => (
-              <div key={m.label}>
-                <p className="text-2xl font-black text-bms-text num">{m.value}</p>
-                <p className="text-xs text-bms-muted font-medium">{m.label}</p>
-              </div>
-            ))}
-          </motion.div>
-        </motion.div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+            <Link href="/signup"  className="bms-btn-primary">Get Started</Link>
+            <Link href="/booking" className="bms-btn-outline">Book a Demo</Link>
+          </div>
+        </div>
       </div>
-
-      {/* Scroll cue */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2, duration: 0.8 }}
-        style={{ zIndex: 5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
-      >
-        <span className="text-[10px] uppercase tracking-[0.2em] text-bms-muted/60">scroll</span>
-        <motion.div
-          animate={{ y: [0, 5, 0] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          <ChevronDown className="w-4 h-4 text-bms-muted/40" />
-        </motion.div>
-      </motion.div>
     </section>
   )
 }
