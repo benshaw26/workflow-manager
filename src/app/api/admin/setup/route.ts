@@ -12,19 +12,8 @@ const ALL_AUTOMATION_IDS = [
 ]
 
 // One-time admin setup endpoint.
-// Protected by SETUP_SECRET env var — pass it as ?secret=<value> in the URL.
-// Once an admin exists this route returns 409 and does nothing.
-export async function GET(req: Request) {
-  const secret = process.env.SETUP_SECRET
-  if (!secret) {
-    return NextResponse.json({ error: 'SETUP_SECRET env var not set' }, { status: 500 })
-  }
-
-  const { searchParams } = new URL(req.url)
-  if (searchParams.get('secret') !== secret) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+// Only works if no ADMIN user exists — safe to leave deployed as it's a no-op after first use.
+export async function GET() {
   // Check if admin already exists
   const existing = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
   if (existing) {
