@@ -1,4 +1,6 @@
-export const AUTOMATIONS = [
+import type { Automation } from '@/types'
+
+export const AUTOMATIONS: Automation[] = [
   {
     id: 'property-analysis',
     title: 'Property Analysis',

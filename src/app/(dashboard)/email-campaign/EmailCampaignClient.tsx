@@ -150,7 +150,7 @@ export function EmailCampaignClient({ userName }: { userName: string }) {
       .map((e) => e.trim().toLowerCase())
       .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
     const fromScan = scannedContacts.filter((c) => c.selected).map((c) => c.email)
-    return [...new Set([...pasted, ...fromScan])]
+    return Array.from(new Set([...pasted, ...fromScan]))
   }
 
   const scanForEmails = async () => {
