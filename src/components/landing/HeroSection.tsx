@@ -68,14 +68,6 @@ export function HeroSection() {
           animation: bloom3 8s ease-in-out infinite alternate;
           animation-delay: -5s;
         }
-        .bms-nav-link {
-          color: rgba(255,255,255,0.75);
-          text-decoration: none;
-          font-size: 14px;
-          font-weight: 500;
-          transition: color 0.2s;
-        }
-        .bms-nav-link:hover { color: #fff; }
         .bms-btn-primary {
           background: #7b2ff7;
           color: #fff;
@@ -108,21 +100,6 @@ export function HeroSection() {
           background: rgba(255,255,255,0.06);
           transform: translateY(-1px);
         }
-        .bms-btn-teal {
-          background: transparent;
-          color: #00d4d4;
-          border: 1.5px solid #00d4d4;
-          padding: 8px 18px;
-          border-radius: 7px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          text-decoration: none;
-          display: inline-block;
-          transition: background 0.2s;
-          white-space: nowrap;
-        }
-        .bms-btn-teal:hover { background: rgba(0,212,212,0.1); }
       `}</style>
 
       {/* ── Bloom layers ────────────────────────────────────────────────── */}
@@ -209,45 +186,6 @@ export function HeroSection() {
         <circle cx="0"    cy="600" r="2"   fill="#008cff" opacity="0.3" />
         <circle cx="280"  cy="900" r="2"   fill="#a000ff" opacity="0.3" />
       </svg>
-
-      {/* ── Nav bar ──────────────────────────────────────────────────────── */}
-      <nav style={{
-        position: 'relative',
-        zIndex: 10,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '24px 48px',
-        flexWrap: 'wrap',
-        gap: '16px',
-      }}>
-        {/* Logo */}
-        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{
-            fontSize: '18px',
-            fontWeight: 800,
-            color: '#fff',
-            letterSpacing: '-0.02em',
-          }}>
-            BMS{' '}
-            <span style={{ color: '#c86cff' }}>Services</span>
-          </span>
-        </Link>
-
-        {/* Centre links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <Link href="/"            className="bms-nav-link">Home</Link>
-          <Link href="/automations" className="bms-nav-link">Automations</Link>
-          <Link href="/booking"     className="bms-nav-link">Book a Demo</Link>
-        </div>
-
-        {/* Right CTAs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/login"   className="bms-nav-link">Sign In</Link>
-          <Link href="/signup"  className="bms-nav-link">Sign Up</Link>
-          <Link href="/booking" className="bms-btn-teal">Book Demo</Link>
-        </div>
-      </nav>
 
       {/* ── Hero content ─────────────────────────────────────────────────── */}
       <div style={{
