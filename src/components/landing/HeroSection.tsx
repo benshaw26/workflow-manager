@@ -93,7 +93,7 @@ export function HeroSection() {
             </span>
             <span className="text-xs font-medium text-bms-muted">Accepting new clients</span>
             <span className="w-px h-3 bg-bms-border" />
-            <span className="text-xs font-semibold text-bms-cyan">AI Automation Studio</span>
+            <span className="text-xs font-semibold text-bms-cyan">AI Growth Partner</span>
           </motion.div>
 
           {/* Headline */}
@@ -126,7 +126,7 @@ export function HeroSection() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="text-bms-muted text-lg leading-relaxed mb-10 max-w-lg"
           >
-            BMS Services builds custom AI systems that eliminate your most repetitive work — from scanning thousands of properties to responding to every email — so your team operates at 10×.
+            I help businesses grow smarter with AI — from custom websites and marketing automation to social media strategy and intelligent lead generation. Less manual work, more results.
           </motion.p>
 
           {/* CTAs */}
@@ -145,7 +145,7 @@ export function HeroSection() {
               href="/automations"
               className="inline-flex items-center gap-2 text-sm font-semibold text-bms-muted hover:text-bms-text transition-colors group"
             >
-              Explore automations
+              See what I offer
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>

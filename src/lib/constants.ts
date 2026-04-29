@@ -190,17 +190,22 @@ export const STATS = [
 export const HOW_IT_WORKS = [
   {
     step: 1,
-    title: 'Book a Free Demo',
-    description: 'Schedule a 30-minute call with our team. We analyse your business processes and identify the highest-impact automation opportunities.',
+    title: 'Discovery Call',
+    description: 'We dig into your goals, challenges, audience, and what success looks like for you — completely free.',
   },
   {
     step: 2,
-    title: 'Custom AI Build',
-    description: 'We design and build your automations from scratch, trained on your data, brand voice, and workflows. No templates — everything is bespoke.',
+    title: 'Strategy & Proposal',
+    description: 'I put together a tailored plan — clear scope, timeline, and transparent pricing. No surprises, ever.',
   },
   {
     step: 3,
-    title: 'Launch & Scale',
-    description: 'Go live in days. Monitor performance via your real-time dashboard. We continuously optimise your automations as your business grows.',
+    title: 'Build & Refine',
+    description: 'I build, you review. Regular check-ins keep you in control and the project on track from day one.',
+  },
+  {
+    step: 4,
+    title: 'Launch & Grow',
+    description: "We go live. I don't disappear — ongoing support and optimisation is always available when you need it.",
   },
 ]

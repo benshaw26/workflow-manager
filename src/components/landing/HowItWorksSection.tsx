@@ -22,13 +22,13 @@ export function HowItWorksSection() {
             How It Works
           </span>
           <h2 className="text-4xl lg:text-5xl font-bold text-bms-text mb-4">
-            From Zero to Automated{' '}
+            Simple Process.{' '}
             <span className="bg-gradient-to-r from-bms-cyan to-bms-purple bg-clip-text text-transparent">
-              in Days
+              Real Results.
             </span>
           </h2>
           <p className="text-bms-muted text-lg max-w-2xl mx-auto">
-            Our streamlined process gets your AI automations live fast, with zero technical knowledge required from your team.
+            From first conversation to live results — a clear, collaborative process designed around your business goals.
           </p>
         </motion.div>
 
@@ -36,10 +36,10 @@ export function HowItWorksSection() {
           variants={staggerContainer}
           initial="hidden"
           animate={isInView ? 'visible' : 'hidden'}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8 relative"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative"
         >
           {/* Connecting lines (desktop) */}
-          <div className="hidden md:block absolute top-12 left-1/3 right-1/3 h-px bg-gradient-to-r from-bms-cyan/30 via-bms-purple/30 to-bms-cyan/30" />
+          <div className="hidden lg:block absolute top-12 left-1/4 right-1/4 h-px bg-gradient-to-r from-bms-cyan/30 via-bms-purple/30 to-bms-cyan/30" />
 
           {HOW_IT_WORKS.map((step, index) => (
             <motion.div
