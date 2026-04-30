@@ -194,7 +194,7 @@ export function HeroSection() {
         flex: 1,
         display: 'flex',
         alignItems: 'center',
-        padding: '55px 48px 80px',
+        padding: '62px 48px 80px',
         maxWidth: '720px',
       }}>
         <div>
