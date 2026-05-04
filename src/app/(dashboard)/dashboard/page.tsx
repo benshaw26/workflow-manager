@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import {
   Globe, Bot, Megaphone, FileText, Mail, Inbox, MessageSquare,
-  Calendar, CheckCircle2, Clock, Zap, ArrowRight, Headphones,
+  Calendar, CheckCircle2, Clock, Zap, ArrowRight, Headphones, Clapperboard,
 } from 'lucide-react'
 
 const SERVICE_META: Record<string, { icon: React.ElementType; color: string; desc: string; category: string }> = {
@@ -15,6 +15,8 @@ const SERVICE_META: Record<string, { icon: React.ElementType; color: string; des
   'ai-chatbot':         { icon: Bot,          color: '#a855f7', desc: '24/7 intelligent customer support agent for your business.', category: 'Support' },
   'email-marketing':    { icon: Mail,         color: '#00d4ff', desc: 'Personalised email campaigns built and sent automatically.', category: 'Marketing' },
   'email-response':     { icon: Inbox,        color: '#a855f7', desc: 'Reads, understands and replies to incoming emails for you.', category: 'Support' },
+  'bio-creation':       { icon: MessageSquare, color: '#00d4ff', desc: 'AI-crafted Instagram captions from your videos.', category: 'Marketing' },
+  'montage-creation':   { icon: Clapperboard,  color: '#00d4ff', desc: 'AI-powered video montage pipeline — clips to final cut.', category: 'Marketing' },
 }
 
 async function getUserServices(userId: string) {

@@ -9,6 +9,7 @@ const ALL_AUTOMATION_IDS = [
   'email-marketing',
   'email-response',
   'bio-creation',
+  'montage-creation',
 ]
 
 export async function seedAdminIfNeeded() {

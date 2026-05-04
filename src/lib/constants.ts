@@ -159,6 +159,29 @@ export const AUTOMATIONS: Automation[] = [
       'Speakers and consultants needing platform-specific bios',
     ],
   },
+  {
+    id: 'montage-creation',
+    title: 'Montage Creator',
+    tagline: 'AI-powered video montage pipeline — clips to final cut',
+    icon: 'Clapperboard',
+    category: 'Marketing',
+    color: 'cyan',
+    launchUrl: '/montage-creation',
+    description:
+      'Upload raw video clips and let AI analyse, trim, sequence, and render a polished montage. 7-stage pipeline with music selection and human review checkpoints.',
+    benefits: [
+      'AI scores and selects the best clips automatically',
+      'Transcription-based content analysis',
+      'Combination planning with human approval',
+      'Music selection and BPM matching',
+      'Quality-checked final render',
+    ],
+    useCases: [
+      'Social media highlight reels',
+      'Event recap videos',
+      'Artist promotional content',
+    ],
+  },
 ]
 
 export const NAV_LINKS = [
