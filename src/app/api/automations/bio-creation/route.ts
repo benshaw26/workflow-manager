@@ -155,12 +155,12 @@ Hashtag rules: mix artist-name tags, genre tags, mood tags, and niche tags. All 
       .map((b) => b.text)
       .join('\n')
 
-    console.log('[BIO-CREATION] raw:', rawText.slice(0, 300))
-    console.log('[BIO-CREATION] mainMatch:', !!mainMatch, 'commentMatch:', !!commentMatch)
-
     // Try to extract structured sections (flexible: \r?\n handles CRLF too)
     const mainMatch    = rawText.match(/---MAIN---\r?\n([\s\S]*?)---END_MAIN---/)
     const commentMatch = rawText.match(/---COMMENT---\r?\n([\s\S]*?)---END_COMMENT---/)
+
+    console.log('[BIO-CREATION] raw:', rawText.slice(0, 300))
+    console.log('[BIO-CREATION] mainMatch:', !!mainMatch, 'commentMatch:', !!commentMatch)
 
     // Strip dot-only separator lines
     const stripDots = (s: string) =>
