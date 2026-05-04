@@ -155,18 +155,24 @@ Hashtag rules: mix artist-name tags, genre tags, mood tags, and niche tags. All 
       .map((b) => b.text)
       .join('\n')
 
-    console.log('[BIO-CREATION] raw:', rawText.slice(0, 200))
+    console.log('[BIO-CREATION] raw:', rawText.slice(0, 300))
+    console.log('[BIO-CREATION] mainMatch:', !!mainMatch, 'commentMatch:', !!commentMatch)
 
-    // Try to extract structured sections
-    const mainMatch    = rawText.match(/---MAIN---\n([\s\S]*?)---END_MAIN---/)
-    const commentMatch = rawText.match(/---COMMENT---\n([\s\S]*?)---END_COMMENT---/)
+    // Try to extract structured sections (flexible: \r?\n handles CRLF too)
+    const mainMatch    = rawText.match(/---MAIN---\r?\n([\s\S]*?)---END_MAIN---/)
+    const commentMatch = rawText.match(/---COMMENT---\r?\n([\s\S]*?)---END_COMMENT---/)
 
-    // Strip any dot-only separator lines Claude may still include
+    // Strip dot-only separator lines
     const stripDots = (s: string) =>
-      s.split('\n').filter(line => line.trim() !== '.').join('\n').trim()
+      s.split('\n')
+        .filter(line => line.trim() !== '.')
+        .join('\n')
+        .trim()
 
-    const mainCaption  = stripDots(mainMatch?.[1] ?? rawText)
-    const firstComment = stripDots(commentMatch?.[1] ?? '')
+    // Never fall back to rawText (which contains markers + both sections → causes duplication)
+    // If regex fails, return empty so the error path triggers a retry message
+    const mainCaption  = mainMatch?.[1] ? stripDots(mainMatch[1]) : ''
+    const firstComment = commentMatch?.[1] ? stripDots(commentMatch[1]) : ''
 
     if (!mainCaption) {
       return NextResponse.json({ error: 'Failed to generate bio — no content returned. Please try again.' }, { status: 500 })
