@@ -26,6 +26,7 @@ model User {
   emailCampaigns     EmailCampaign[]
   scheduledPosts     ScheduledPost[]
   sessions           Session[]
+  bioCreationRuns    BioCreationRun[]
   userAutomations    UserAutomation[]
 
   @@map("users")
@@ -126,6 +127,20 @@ model ScheduledPost {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("scheduled_posts")
+}
+
+model BioCreationRun {
+  id           String   @id @default(cuid())
+  userId       String
+  artistName   String
+  videoName    String
+  bioContext   String?
+  mainCaption  String
+  firstComment String   @default("")
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bio_creation_runs")
 }
 
 model Booking {

@@ -6,6 +6,19 @@ import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 60
 
+export async function GET() {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const runs = await prisma.bioCreationRun.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
+
+  return NextResponse.json({ runs })
+}
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -176,6 +189,22 @@ Hashtag rules: mix artist-name tags, genre tags, mood tags, and niche tags. All 
 
     if (!mainCaption) {
       return NextResponse.json({ error: 'Failed to generate bio — no content returned. Please try again.' }, { status: 500 })
+    }
+
+    // Save run to DB (non-fatal if it fails)
+    try {
+      await prisma.bioCreationRun.create({
+        data: {
+          userId: session.user.id,
+          artistName: artistName.trim(),
+          videoName: videoName ?? 'video',
+          bioContext: bioContext?.trim() || null,
+          mainCaption,
+          firstComment,
+        },
+      })
+    } catch (dbErr) {
+      console.error('[BIO-CREATION] DB save failed:', dbErr)
     }
 
     return NextResponse.json({ mainCaption, firstComment })

@@ -1,12 +1,24 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, CheckCircle2, Clock, AlertCircle, Copy, Check,
-  ChevronRight, Play, RefreshCw, UserCircle,
+  ChevronRight, Play, RefreshCw, UserCircle, History, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+// ─── Saved Run Type ───────────────────────────────────────────────────────────
+
+interface SavedRun {
+  id: string
+  artistName: string
+  videoName: string
+  bioContext: string | null
+  mainCaption: string
+  firstComment: string
+  createdAt: string
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -140,7 +152,28 @@ export default function BioCreationPage() {
   const [bioContext, setBioContext] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // ── Saved history ───────────────────────────────────────────────────────────
+  const [savedRuns, setSavedRuns]       = useState<SavedRun[]>([])
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const res = await fetch('/api/automations/bio-creation')
+      if (res.ok) {
+        const data = await res.json() as { runs: SavedRun[] }
+        setSavedRuns(data.runs)
+      }
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadHistory() }, [loadHistory])
+
   const selectedVideo = videos.find((v) => v.id === selectedId) ?? null
+  const selectedRun   = savedRuns.find((r) => r.id === selectedRunId) ?? null
 
   // ── Upload handler ──────────────────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
@@ -209,7 +242,9 @@ export default function BioCreationPage() {
         ? { ...v, status: 'done', mainCaption: data.mainCaption ?? '', firstComment: data.firstComment ?? '' }
         : v))
       setSelectedId(videoId)
+      setSelectedRunId(null)
       setTab('results')
+      loadHistory() // refresh saved runs
     } catch {
       setVideos((prev) => prev.map((v) => v.id === videoId
         ? { ...v, status: 'error', error: 'Network error. Please try again.' } : v))
@@ -416,9 +451,9 @@ export default function BioCreationPage() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
           >
-            {videos.filter((v) => v.status === 'done').length === 0 ? (
+            {videos.filter((v) => v.status === 'done').length === 0 && savedRuns.length === 0 ? (
               <div className="bg-bms-card border border-bms-border rounded-xl p-12 text-center">
-                <CheckCircle2 className="w-10 h-10 text-bms-muted mx-auto mb-3 opacity-30" />
+                <History className="w-10 h-10 text-bms-muted mx-auto mb-3 opacity-30" />
                 <p className="text-bms-text font-medium mb-1">No bios generated yet</p>
                 <p className="text-bms-muted text-sm">Switch to Import, upload a video, and click Generate Bio.</p>
                 <button onClick={() => setTab('import')} className="mt-4 px-4 py-2 bg-bms-cyan text-bms-dark text-sm font-semibold rounded-lg hover:bg-bms-cyan/90 transition-colors">
@@ -427,51 +462,82 @@ export default function BioCreationPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-                {/* Sidebar: video list */}
-                <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden h-fit">
-                  <div className="px-4 py-3 border-b border-bms-border">
-                    <p className="text-xs font-semibold text-bms-muted uppercase tracking-wide">Videos</p>
-                  </div>
-                  {videos.map((video) => (
-                    <button
-                      key={video.id}
-                      onClick={() => video.status === 'done' && setSelectedId(video.id)}
-                      disabled={video.status !== 'done'}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-4 py-3 border-b border-bms-border last:border-b-0 text-left transition-colors',
-                        selectedId === video.id ? 'bg-bms-cyan/10 border-l-2 border-l-bms-cyan' : 'hover:bg-bms-darker/40',
-                        video.status !== 'done' && 'opacity-40 cursor-not-allowed'
-                      )}
-                    >
-                      <div className="w-10 h-7 rounded bg-bms-darker border border-bms-border overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {video.thumbnailUrl
-                          ? <img src={video.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                          : <Play className="w-3 h-3 text-bms-muted" />
-                        }
+
+                {/* ── Left sidebar: current session + full history ── */}
+                <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden h-fit max-h-[80vh] flex flex-col">
+                  {/* Current session */}
+                  {videos.filter((v) => v.status === 'done').length > 0 && (
+                    <>
+                      <div className="px-4 py-2.5 border-b border-bms-border bg-bms-darker/50">
+                        <p className="text-[10px] font-semibold text-bms-muted uppercase tracking-wide">This Session</p>
                       </div>
-                      <p className="text-xs text-bms-text truncate flex-1">{video.name}</p>
-                      <StatusBadge status={video.status} />
-                    </button>
-                  ))}
+                      {videos.filter((v) => v.status === 'done').map((video) => (
+                        <button
+                          key={video.id}
+                          onClick={() => { setSelectedId(video.id); setSelectedRunId(null) }}
+                          className={cn(
+                            'w-full flex items-center gap-3 px-4 py-3 border-b border-bms-border text-left transition-colors',
+                            selectedId === video.id && !selectedRunId ? 'bg-bms-cyan/10 border-l-2 border-l-bms-cyan' : 'hover:bg-bms-darker/40'
+                          )}
+                        >
+                          <div className="w-10 h-7 rounded bg-bms-darker border border-bms-border overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {video.thumbnailUrl
+                              ? <img src={video.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                              : <Play className="w-3 h-3 text-bms-muted" />
+                            }
+                          </div>
+                          <p className="text-xs text-bms-text truncate flex-1">{video.name}</p>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Saved history */}
+                  {savedRuns.length > 0 && (
+                    <>
+                      <div className="px-4 py-2.5 border-b border-bms-border bg-bms-darker/50 flex items-center justify-between">
+                        <p className="text-[10px] font-semibold text-bms-muted uppercase tracking-wide">Saved History</p>
+                        {historyLoading && <RefreshCw className="w-3 h-3 text-bms-muted animate-spin" />}
+                      </div>
+                      <div className="overflow-y-auto flex-1">
+                        {savedRuns.map((run) => (
+                          <button
+                            key={run.id}
+                            onClick={() => { setSelectedRunId(run.id); setSelectedId(null) }}
+                            className={cn(
+                              'w-full flex items-start gap-3 px-4 py-3 border-b border-bms-border text-left transition-colors',
+                              selectedRunId === run.id ? 'bg-bms-cyan/10 border-l-2 border-l-bms-cyan' : 'hover:bg-bms-darker/40'
+                            )}
+                          >
+                            <History className="w-3.5 h-3.5 text-bms-muted flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-bms-text font-medium truncate">{run.artistName}</p>
+                              <p className="text-[10px] text-bms-muted truncate">{run.videoName}</p>
+                              <p className="text-[10px] text-bms-muted/60 mt-0.5">
+                                {new Date(run.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Main: video preview + bio */}
+                {/* ── Main panel ── */}
                 <div className="lg:col-span-3 space-y-5">
-                  {selectedVideo ? (
+
+                  {/* Current session video selected */}
+                  {selectedVideo && !selectedRunId ? (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {/* Video preview */}
                         <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden">
                           <div className="px-4 py-3 border-b border-bms-border">
                             <p className="text-xs font-semibold text-bms-muted uppercase tracking-wide">Video Preview</p>
                           </div>
                           <div className="p-4">
                             {selectedVideo.objectUrl ? (
-                              <video
-                                src={selectedVideo.objectUrl}
-                                controls
-                                className="w-full rounded-lg aspect-video bg-bms-darker"
-                              />
+                              <video src={selectedVideo.objectUrl} controls className="w-full rounded-lg aspect-video bg-bms-darker" />
                             ) : (
                               <div className="w-full aspect-video bg-bms-darker rounded-lg flex items-center justify-center">
                                 <Play className="w-8 h-8 text-bms-muted opacity-40" />
@@ -480,20 +546,16 @@ export default function BioCreationPage() {
                             <p className="text-bms-muted text-xs mt-2 truncate">{selectedVideo.name}</p>
                           </div>
                         </div>
-
-                        {/* Bio context */}
                         <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden">
                           <div className="px-4 py-3 border-b border-bms-border">
                             <p className="text-xs font-semibold text-bms-muted uppercase tracking-wide">Bio Context</p>
                           </div>
                           <div className="p-4 space-y-3">
-                            <p className="text-bms-muted text-xs">
-                              Describe what this post is about — give the AI direction for the caption.
-                            </p>
+                            <p className="text-bms-muted text-xs">Give the AI direction for the caption.</p>
                             <textarea
                               value={bioContext}
                               onChange={(e) => setBioContext(e.target.value)}
-                              placeholder="e.g. Announcing Zayn's arrival 2026, new single drop, behind the scenes at Glastonbury…"
+                              placeholder="e.g. Announcing Zayn's arrival 2026…"
                               rows={4}
                               className="w-full bg-bms-darker border border-bms-border rounded-lg px-3 py-2.5 text-sm text-bms-text placeholder:text-bms-muted/60 focus:outline-none focus:border-bms-cyan transition-colors resize-none"
                             />
@@ -507,35 +569,51 @@ export default function BioCreationPage() {
                                   : 'bg-bms-cyan text-bms-dark hover:bg-bms-cyan/90'
                               )}
                             >
-                              {selectedVideo.status === 'generating' ? (
-                                <span className="flex items-center justify-center gap-2">
-                                  <RefreshCw className="w-4 h-4 animate-spin" /> Generating…
-                                </span>
-                              ) : 'Regenerate Bio'}
+                              {selectedVideo.status === 'generating'
+                                ? <span className="flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Generating…</span>
+                                : 'Regenerate Bio'}
                             </button>
                           </div>
                         </div>
                       </div>
-
-                      {/* Generated bio */}
-                      {selectedVideo.status === 'done' && (
-                        <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden">
-                          <div className="px-4 py-3 border-b border-bms-border flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            <p className="text-sm font-semibold text-bms-text">Generated Instagram Bio</p>
-                          </div>
-                          <div className="p-4">
-                            <InstagramBio
-                              mainCaption={selectedVideo.mainCaption}
-                              firstComment={selectedVideo.firstComment}
-                            />
-                          </div>
+                      <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-bms-border flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <p className="text-sm font-semibold text-bms-text">Generated Instagram Bio</p>
                         </div>
-                      )}
+                        <div className="p-4">
+                          <InstagramBio mainCaption={selectedVideo.mainCaption} firstComment={selectedVideo.firstComment} />
+                        </div>
+                      </div>
                     </>
+                  ) : selectedRun ? (
+                    /* Saved history run selected */
+                    <div className="space-y-4">
+                      <div className="bg-bms-card border border-bms-border rounded-xl p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-bms-text">{selectedRun.artistName}</p>
+                          <p className="text-xs text-bms-muted">{selectedRun.videoName}</p>
+                          {selectedRun.bioContext && (
+                            <p className="text-xs text-bms-muted/70 mt-0.5 italic">"{selectedRun.bioContext}"</p>
+                          )}
+                        </div>
+                        <p className="text-xs text-bms-muted whitespace-nowrap ml-4">
+                          {new Date(selectedRun.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden">
+                        <div className="px-4 py-3 border-b border-bms-border flex items-center gap-2">
+                          <History className="w-4 h-4 text-bms-cyan" />
+                          <p className="text-sm font-semibold text-bms-text">Saved Caption</p>
+                        </div>
+                        <div className="p-4">
+                          <InstagramBio mainCaption={selectedRun.mainCaption} firstComment={selectedRun.firstComment} />
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="bg-bms-card border border-bms-border rounded-xl p-10 text-center">
-                      <p className="text-bms-muted text-sm">Select a video from the list to view its bio</p>
+                      <p className="text-bms-muted text-sm">Select a video or saved run from the list</p>
                     </div>
                   )}
                 </div>
