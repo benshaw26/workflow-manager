@@ -40,17 +40,45 @@ export async function POST(request: Request) {
     })
   }
 
-  // ── Step 1: Identify the artist's team & Instagram handles ──────────────
+  // ── Step 1: Research artist's team via Rostr (Google/Serper search) ──────
   let teamHandles = ''
   try {
+    let rostrSnippet = ''
+
+    // Try Serper (Google Search API) to find Rostr profile
+    if (process.env.SERPER_API_KEY) {
+      const serperRes = await fetch('https://google.serper.dev/search', {
+        method: 'POST',
+        headers: {
+          'X-API-KEY': process.env.SERPER_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ q: `"${artistName}" site:rostr.com`, num: 3 }),
+      })
+      if (serperRes.ok) {
+        const serperData = await serperRes.json() as {
+          organic?: Array<{ title: string; snippet: string; link: string }>
+        }
+        const hits = serperData.organic ?? []
+        rostrSnippet = hits
+          .filter(h => h.link.includes('rostr.com'))
+          .map(h => `${h.title}\n${h.snippet}`)
+          .join('\n\n')
+        console.log('[BIO-CREATION] Rostr snippet:', rostrSnippet.slice(0, 300))
+      }
+    }
+
+    // Ask Claude to extract/confirm Instagram handles from Rostr snippet + its own knowledge
     const teamRes = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
       messages: [{
         role: 'user',
-        content: `You are a music industry researcher. Based on your training knowledge, list the known Instagram handles for the team around the artist "${artistName}". Include: record label, management company, frequent producers, frequent featured artists, and booking/PR agencies — only ones you are confident about.
+        content: `You are a music industry researcher. Your task is to find the Instagram handles for the team around the artist "${artistName}".
+${rostrSnippet ? `\nHere is data found on Rostr.com for this artist:\n---\n${rostrSnippet}\n---\n` : ''}
+Using the Rostr data above AND your own training knowledge, list the Instagram handles of: record label, management company, frequent producers, frequent featured artists, and booking/PR agencies — only ones you are confident about.
 
-Reply with ONLY a space-separated list of @handles (e.g. @sonymusic @scooterbraun). If you don't know any, reply with the single word NONE. No explanation.`,
+Reply with ONLY a space-separated list of @handles (e.g. @sonymusic @scooterbraun). If you don't know any with confidence, reply with the single word NONE. No explanation.`,
       }],
     })
     const raw = teamRes.content
