@@ -40,6 +40,29 @@ export async function POST(request: Request) {
     })
   }
 
+  // ── Step 1: Identify the artist's team & Instagram handles ──────────────
+  let teamHandles = ''
+  try {
+    const teamRes = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: `You are a music industry researcher. Based on your training knowledge, list the known Instagram handles for the team around the artist "${artistName}". Include: record label, management company, frequent producers, frequent featured artists, and booking/PR agencies — only ones you are confident about.
+
+Reply with ONLY a space-separated list of @handles (e.g. @sonymusic @scooterbraun). If you don't know any, reply with the single word NONE. No explanation.`,
+      }],
+    })
+    const raw = teamRes.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text.trim())
+      .join(' ')
+    teamHandles = raw === 'NONE' ? '' : raw
+  } catch {
+    // Non-fatal — continue without team handles
+  }
+
+  // ── Step 2: Generate the caption ─────────────────────────────────────────
   contentBlocks.push({
     type: 'text',
     text: `Generate an Instagram caption for this video.
@@ -47,12 +70,13 @@ export async function POST(request: Request) {
 ARTIST: ${artistName}
 VIDEO: ${videoName ?? 'video'}
 CONTEXT: ${bioContext?.trim() || 'general post'}
+${teamHandles ? `ARTIST'S TEAM INSTAGRAM HANDLES (include 1-2 naturally in the caption where it fits): ${teamHandles}` : ''}
 ${thumbnailBase64 ? '\nThe image above is a frame from the video. Use it to understand the mood, setting, energy, and content.' : ''}
 
 Write the output in EXACTLY this format — no preamble, no explanation:
 
 ---MAIN---
-[1-3 lines of caption copy. Match the mood of the video and context. Sound like ${artistName} wrote it personally. 1-2 emoji max. Keep line 1 under 125 chars.]
+[1-3 lines of caption copy. Match the mood of the video and context. Sound like ${artistName} wrote it personally. 1-2 emoji max. Keep line 1 under 125 chars. If team handles were provided, weave 1-2 of the most relevant ones naturally into the copy — not just appended at the end.]
 
 #tag1 #tag2 #tag3 #tag4 #tag5
 ---END_MAIN---
