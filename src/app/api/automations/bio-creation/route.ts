@@ -47,30 +47,25 @@ export async function POST(request: Request) {
 ARTIST: ${artistName}
 VIDEO: ${videoName ?? 'video'}
 CONTEXT: ${bioContext?.trim() || 'general post'}
+${thumbnailBase64 ? '\nThe image above is a frame from the video. Use it to understand the mood, setting, energy, and content.' : ''}
 
-${thumbnailBase64 ? 'The frame above shows what is happening in the video — use it to inform the mood, setting, and energy of the caption.' : ''}
+Write the output in EXACTLY this format — no preamble, no explanation:
 
-Output ONLY these two sections, nothing else:
-
-SECTION_1_MAIN:
-[Write 1–3 lines of punchy, authentic caption copy here. Match the mood of the video and context. Sound like ${artistName} wrote it — never AI-sounding. Use 1–2 emoji max, placed naturally. Keep line 1 under 125 characters.]
+---MAIN---
+[1-3 lines of caption copy. Match the mood of the video and context. Sound like ${artistName} wrote it personally. 1-2 emoji max. Keep line 1 under 125 chars.]
 .
 .
 .
 .
 .
-#hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5
-END_SECTION_1
+#tag1 #tag2 #tag3 #tag4 #tag5
+---END_MAIN---
 
-SECTION_2_FIRST_COMMENT:
-#hashtag6 #hashtag7 #hashtag8 #hashtag9 #hashtag10 #hashtag11 #hashtag12 #hashtag13 #hashtag14 #hashtag15 #hashtag16 #hashtag17 #hashtag18 #hashtag19 #hashtag20 #hashtag21 #hashtag22 #hashtag23 #hashtag24 #hashtag25
-END_SECTION_2
+---COMMENT---
+#tag6 #tag7 #tag8 #tag9 #tag10 #tag11 #tag12 #tag13 #tag14 #tag15 #tag16 #tag17 #tag18 #tag19 #tag20 #tag21 #tag22 #tag23 #tag24 #tag25
+---END_COMMENT---
 
-Rules for hashtags:
-- 5 in the main caption, 20+ in the first comment
-- Mix high-reach and niche — match the artist tier and genre
-- All lowercase, no spaces
-- Include artist name tag, genre tags, mood tags, and any relevant event/song tags`,
+Hashtag rules: mix artist-name tags, genre tags, mood tags, and niche tags. All lowercase. 5 in main caption, 20 in comment.`,
   })
 
   try {
@@ -80,25 +75,29 @@ Rules for hashtags:
       messages: [{ role: 'user', content: contentBlocks }],
     })
 
-    const text = response.content.find((b) => b.type === 'text')?.type === 'text'
-      ? (response.content.find((b) => b.type === 'text') as Anthropic.TextBlock).text
-      : ''
+    // Extract text from response
+    const rawText = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
 
-    const extract = (raw: string, tag: string) => {
-      const m = raw.match(new RegExp(`${tag}:?\\n([\\s\\S]*?)END_${tag}`))
-      return m?.[1]?.trim() ?? ''
-    }
+    console.log('[BIO-CREATION] raw:', rawText.slice(0, 200))
 
-    const mainCaption  = extract(text, 'SECTION_1_MAIN')
-    const firstComment = extract(text, 'SECTION_2_FIRST_COMMENT')
+    // Try to extract structured sections
+    const mainMatch    = rawText.match(/---MAIN---\n([\s\S]*?)---END_MAIN---/)
+    const commentMatch = rawText.match(/---COMMENT---\n([\s\S]*?)---END_COMMENT---/)
+
+    const mainCaption  = mainMatch?.[1]?.trim() ?? rawText.trim()
+    const firstComment = commentMatch?.[1]?.trim() ?? ''
 
     if (!mainCaption) {
-      return NextResponse.json({ error: 'Failed to generate bio. Please try again.' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to generate bio — no content returned. Please try again.' }, { status: 500 })
     }
 
     return NextResponse.json({ mainCaption, firstComment })
   } catch (err) {
     console.error('[BIO-CREATION ERROR]', err)
-    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: `Generation failed: ${msg}` }, { status: 500 })
   }
 }
