@@ -16,7 +16,7 @@ export function DashboardTopbar() {
   const pathname = usePathname()
 
   return (
-    <header className="h-14 bg-bms-darker/80 backdrop-blur-md border-b border-bms-border flex items-center justify-between px-6 sticky top-0 z-10">
+    <header className="h-14 bg-bms-darker/80 backdrop-blur-md border-b border-bms-border hidden md:flex items-center justify-between px-6 sticky top-0 z-10">
       <div>
         <p className="text-[10px] text-bms-muted uppercase tracking-[0.15em] font-medium">BMS Services</p>
         <h1 className="text-sm font-semibold text-bms-text leading-tight">

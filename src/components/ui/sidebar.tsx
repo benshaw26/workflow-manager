@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import Link, { LinkProps } from "next/link";
 import React, { useState, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Zap } from "lucide-react";
 
 interface Links {
   label: string;
@@ -116,32 +116,57 @@ export const MobileSidebar = ({
         )}
         {...props}
       >
-        <div className="flex justify-end z-20 w-full">
-          <Menu
-            className="text-bms-muted hover:text-bms-cyan cursor-pointer transition-colors"
-            onClick={() => setOpen(!open)}
-          />
-        </div>
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-gradient-to-br from-bms-cyan to-bms-purple rounded-lg flex items-center justify-center shadow-cyan-glow">
+            <Zap className="w-3.5 h-3.5 text-bms-dark" />
+          </div>
+          <span className="text-sm font-bold text-bms-text">
+            BMS <span className="text-bms-cyan">Services</span>
+          </span>
+        </Link>
+
+        {/* Hamburger */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-bms-cyan/10 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5 text-bms-muted hover:text-bms-cyan transition-colors" />
+        </button>
         <AnimatePresence>
           {open && (
-            <motion.div
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className={cn(
-                "fixed h-full w-full inset-0 bg-bms-darker border-r border-bms-border p-10 z-[100] flex flex-col justify-between",
-                className
-              )}
-            >
-              <div
-                className="absolute right-10 top-10 z-50 text-bms-muted hover:text-bms-cyan cursor-pointer transition-colors"
-                onClick={() => setOpen(!open)}
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-black/60 z-[99]"
+                onClick={() => setOpen(false)}
+              />
+              {/* Drawer */}
+              <motion.div
+                initial={{ x: "-100%", opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: "-100%", opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className={cn(
+                  "fixed h-full w-4/5 max-w-xs inset-0 bg-bms-darker border-r border-bms-border p-8 z-[100] flex flex-col justify-between",
+                  className
+                )}
               >
-                <X />
-              </div>
-              {children}
-            </motion.div>
+                <button
+                  className="absolute right-4 top-4 p-2 text-bms-muted hover:text-bms-cyan transition-colors"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                {children}
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </div>
@@ -158,10 +183,11 @@ export const SidebarLink = ({
   className?: string;
   props?: LinkProps;
 }) => {
-  const { open, animate } = useSidebar();
+  const { open, animate, setOpen } = useSidebar();
   return (
     <Link
       href={link.href}
+      onClick={() => setOpen(false)}
       className={cn(
         "flex items-center justify-start gap-3 group/sidebar py-2.5 px-2 rounded-lg hover:bg-bms-cyan/10 transition-colors duration-200",
         className
