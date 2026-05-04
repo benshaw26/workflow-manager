@@ -8,6 +8,7 @@ const ALL_AUTOMATION_IDS = [
   'ai-chatbot',
   'email-marketing',
   'email-response',
+  'bio-creation',
 ]
 
 export async function seedAdminIfNeeded() {

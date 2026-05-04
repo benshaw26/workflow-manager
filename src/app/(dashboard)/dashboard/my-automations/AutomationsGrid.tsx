@@ -4,7 +4,7 @@ import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import Link from 'next/link'
 import {
-  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2,
+  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle,
   TrendingUp, CheckCircle2, Clock, ArrowRight, Lock,
 } from 'lucide-react'
 import { StatCard } from '@/components/dashboard/StatCard'
@@ -13,7 +13,7 @@ import { staggerContainer, staggerItem } from '@/lib/animations'
 import type { Automation } from '@/types'
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2,
+  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle,
 }
 
 const WEIGHTS: Record<string, number> = {

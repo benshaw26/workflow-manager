@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { AUTOMATIONS } from '@/lib/constants'
 import Link from 'next/link'
 import {
-  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2,
+  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle,
   TrendingUp, CheckCircle2, Clock, ArrowRight, Lock,
 } from 'lucide-react'
 import { LaunchButton } from './LaunchButton'
@@ -17,6 +17,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Mail:         <Mail className="w-6 h-6" />,
   Inbox:        <Inbox className="w-6 h-6" />,
   Share2:       <Share2 className="w-6 h-6" />,
+  UserCircle:   <UserCircle className="w-6 h-6" />,
 }
 
 const WEIGHTS: Record<string, number> = {
@@ -27,6 +28,7 @@ const WEIGHTS: Record<string, number> = {
   'email-marketing':        0.09,
   'email-response':         0.06,
   'social-media-scheduler': 0.09,
+  'bio-creation':           0.07,
 }
 
 export default async function MyAutomationsPage() {

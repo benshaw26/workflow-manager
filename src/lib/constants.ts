@@ -136,6 +136,28 @@ export const AUTOMATIONS: Automation[] = [
       'Support departments handling repetitive ticket types',
     ],
   },
+  {
+    id: 'bio-creation',
+    title: 'Bio Creation',
+    tagline: 'AI-crafted professional bios for any platform or purpose',
+    icon: 'UserCircle',
+    category: 'Marketing',
+    color: 'cyan',
+    description:
+      'Generate compelling, platform-optimised professional bios in seconds. Our AI analyses your career history, achievements, and brand voice to craft tailored bios for LinkedIn, press releases, speaker profiles, websites, and more — consistent, polished, and always on-brand.',
+    benefits: [
+      'Bios tailored for LinkedIn, Twitter, speaker pages, and press kits',
+      'Matches your brand tone — professional, friendly, or authoritative',
+      'Multiple length variants generated in one click',
+      'Highlights key achievements and unique value propositions',
+      'Instant updates when your role or focus changes',
+    ],
+    useCases: [
+      'Professionals updating their LinkedIn or website about pages',
+      'Agencies creating bios for multiple team members at scale',
+      'Speakers and consultants needing platform-specific bios',
+    ],
+  },
 ]
 
 export const NAV_LINKS = [

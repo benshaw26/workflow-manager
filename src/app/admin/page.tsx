@@ -17,6 +17,7 @@ const AUTOMATION_IDS = [
   { id: 'ai-chatbot',         label: 'AI Chatbot' },
   { id: 'email-marketing',    label: 'Email Marketing' },
   { id: 'email-response',     label: 'Email Response' },
+  { id: 'bio-creation',       label: 'Bio Creation' },
 ]
 
 type UserRow = {
