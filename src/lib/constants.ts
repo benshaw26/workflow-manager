@@ -143,6 +143,7 @@ export const AUTOMATIONS: Automation[] = [
     icon: 'UserCircle',
     category: 'Marketing',
     color: 'cyan',
+    launchUrl: '/bio-creation',
     description:
       'Generate compelling, platform-optimised professional bios in seconds. Our AI analyses your career history, achievements, and brand voice to craft tailored bios for LinkedIn, press releases, speaker profiles, websites, and more — consistent, polished, and always on-brand.',
     benefits: [
