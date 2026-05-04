@@ -171,11 +171,17 @@ export default function BioCreationPage() {
     Array.from(e.dataTransfer.files).forEach(handleFile)
   }, [handleFile])
 
+  const [artistError, setArtistError] = useState('')
+
   // ── Generate bio ────────────────────────────────────────────────────────────
   const generate = async (videoId: string) => {
     const video = videos.find((v) => v.id === videoId)
     if (!video || video.status === 'generating') return
-    if (!artistName.trim()) { alert('Please enter an artist name first.'); return }
+    if (!artistName.trim()) {
+      setArtistError('Artist name is required before generating a bio.')
+      return
+    }
+    setArtistError('')
 
     setVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, status: 'generating', error: '' } : v))
 
@@ -253,125 +259,151 @@ export default function BioCreationPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
-            className="space-y-5"
+            className="space-y-4"
           >
-            {/* Top row: Upload + Artist */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Upload box */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={onDrop}
-                onClick={() => fileRef.current?.click()}
-                className={cn(
-                  'border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200',
-                  dragging
-                    ? 'border-bms-cyan bg-bms-cyan/5'
-                    : 'border-bms-border bg-bms-card hover:border-bms-cyan/50 hover:bg-bms-card/80'
-                )}
-              >
-                <div className="w-12 h-12 rounded-xl bg-bms-cyan/10 flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-bms-cyan" />
-                </div>
-                <div className="text-center">
-                  <p className="text-bms-text font-medium text-sm">Drop a video here</p>
-                  <p className="text-bms-muted text-xs mt-0.5">or click to browse — one at a time</p>
-                </div>
-                <p className="text-bms-muted text-[11px]">MP4 · MOV · AVI · MKV · WebM</p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
-                />
+            {/* Upload box — full width */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              onClick={() => fileRef.current?.click()}
+              className={cn(
+                'border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200',
+                dragging
+                  ? 'border-bms-cyan bg-bms-cyan/5'
+                  : 'border-bms-border bg-bms-card hover:border-bms-cyan/50 hover:bg-bms-card/80'
+              )}
+            >
+              <div className="w-12 h-12 rounded-xl bg-bms-cyan/10 flex items-center justify-center">
+                <Upload className="w-6 h-6 text-bms-cyan" />
               </div>
-
-              {/* Artist name */}
-              <div className="bg-bms-card border border-bms-border rounded-xl p-6 flex flex-col justify-center gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-bms-muted uppercase tracking-wide mb-2">
-                    Artist Name
-                  </label>
-                  <input
-                    value={artistName}
-                    onChange={(e) => setArtistName(e.target.value)}
-                    placeholder="e.g. Zayn, Central Cee, Stormzy…"
-                    className="w-full bg-bms-darker border border-bms-border rounded-lg px-4 py-2.5 text-sm text-bms-text placeholder:text-bms-muted/60 focus:outline-none focus:border-bms-cyan transition-colors"
-                  />
-                  <p className="text-bms-muted text-[11px] mt-1.5">
-                    Used across all videos in this session
-                  </p>
-                </div>
+              <div className="text-center">
+                <p className="text-bms-text font-medium text-sm">Drop a video here</p>
+                <p className="text-bms-muted text-xs mt-0.5">or click to browse — one at a time</p>
               </div>
+              <p className="text-bms-muted text-[11px]">MP4 · MOV · AVI · MKV · WebM</p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]) }}
+              />
             </div>
 
-            {/* Video list */}
-            {videos.length > 0 && (
-              <div className="bg-bms-card border border-bms-border rounded-xl overflow-hidden">
+            {/* Artist name — compact, underneath upload */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-semibold text-bms-muted uppercase tracking-wide whitespace-nowrap">
+                  Artist Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  value={artistName}
+                  onChange={(e) => { setArtistName(e.target.value); setArtistError('') }}
+                  placeholder="e.g. Zayn, Central Cee, Stormzy…"
+                  className={cn(
+                    'flex-1 bg-bms-darker border rounded-lg px-3 py-2 text-sm text-bms-text placeholder:text-bms-muted/60 focus:outline-none transition-colors',
+                    artistError ? 'border-red-400 focus:border-red-400' : 'border-bms-border focus:border-bms-cyan'
+                  )}
+                />
+              </div>
+              {artistError && (
+                <p className="text-xs text-red-400 pl-1">{artistError}</p>
+              )}
+            </div>
+
+            {/* Two-column: video list (left) + empty state / generate hint (right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              {/* Video list — left */}
+              <div className="lg:col-span-2 bg-bms-card border border-bms-border rounded-xl overflow-hidden">
                 <div className="px-5 py-3.5 border-b border-bms-border flex items-center justify-between">
-                  <span className="text-sm font-semibold text-bms-text">{videos.length} video{videos.length !== 1 ? 's' : ''} imported</span>
-                  <span className="text-xs text-bms-muted">{videos.filter((v) => v.status === 'done').length} bios generated</span>
+                  <span className="text-sm font-semibold text-bms-text">
+                    {videos.length > 0 ? `${videos.length} video${videos.length !== 1 ? 's' : ''} imported` : 'Imported Videos'}
+                  </span>
+                  {videos.length > 0 && (
+                    <span className="text-xs text-bms-muted">{videos.filter((v) => v.status === 'done').length} bios generated</span>
+                  )}
                 </div>
 
-                <div className="divide-y divide-bms-border">
-                  {videos.map((video) => (
-                    <div key={video.id} className="flex items-center gap-4 px-5 py-4 hover:bg-bms-darker/40 transition-colors">
-                      {/* Thumbnail */}
-                      <div className="w-16 h-10 rounded-lg bg-bms-darker border border-bms-border overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {video.thumbnailUrl
-                          ? <img src={video.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                          : <Play className="w-4 h-4 text-bms-muted" />
-                        }
-                      </div>
+                {videos.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <Play className="w-7 h-7 text-bms-muted mx-auto mb-2 opacity-40" />
+                    <p className="text-bms-muted text-xs">No videos yet — upload one above</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-bms-border">
+                    {videos.map((video) => (
+                      <div key={video.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-bms-darker/40 transition-colors">
+                        {/* Thumbnail */}
+                        <div className="w-14 h-9 rounded-lg bg-bms-darker border border-bms-border overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {video.thumbnailUrl
+                            ? <img src={video.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                            : <Play className="w-3.5 h-3.5 text-bms-muted" />
+                          }
+                        </div>
 
-                      {/* Name + status */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-bms-text truncate">{video.name}</p>
-                        {video.error && <p className="text-xs text-red-400 mt-0.5">{video.error}</p>}
-                      </div>
+                        {/* Name */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-bms-text truncate">{video.name}</p>
+                          {video.error && <p className="text-[10px] text-red-400 mt-0.5">{video.error}</p>}
+                        </div>
 
-                      <StatusBadge status={video.status} />
+                        <StatusBadge status={video.status} />
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {video.status === 'done' && (
-                          <button
-                            onClick={() => { setSelectedId(video.id); setTab('results') }}
-                            className="flex items-center gap-1 text-xs text-bms-cyan hover:text-bms-cyan/80 transition-colors"
-                          >
-                            View <ChevronRight className="w-3 h-3" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => generate(video.id)}
-                          disabled={video.status === 'generating'}
-                          className={cn(
-                            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                            video.status === 'generating'
-                              ? 'bg-bms-darker text-bms-muted cursor-not-allowed'
-                              : video.status === 'done'
-                              ? 'bg-bms-darker border border-bms-border text-bms-muted hover:text-bms-cyan hover:border-bms-cyan/40'
-                              : 'bg-bms-cyan text-bms-dark hover:bg-bms-cyan/90'
+                        {/* Actions */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {video.status === 'done' && (
+                            <button
+                              onClick={() => { setSelectedId(video.id); setTab('results') }}
+                              className="flex items-center gap-0.5 text-[11px] text-bms-cyan hover:text-bms-cyan/80 transition-colors"
+                            >
+                              View <ChevronRight className="w-3 h-3" />
+                            </button>
                           )}
-                        >
-                          {video.status === 'generating' ? 'Generating…'
-                           : video.status === 'done' ? 'Regenerate'
-                           : 'Generate Bio'}
-                        </button>
+                          <button
+                            onClick={() => generate(video.id)}
+                            disabled={video.status === 'generating'}
+                            className={cn(
+                              'px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all',
+                              video.status === 'generating'
+                                ? 'bg-bms-darker text-bms-muted cursor-not-allowed'
+                                : video.status === 'done'
+                                ? 'bg-bms-darker border border-bms-border text-bms-muted hover:text-bms-cyan hover:border-bms-cyan/40'
+                                : 'bg-bms-cyan text-bms-dark hover:bg-bms-cyan/90'
+                            )}
+                          >
+                            {video.status === 'generating' ? 'Generating…'
+                             : video.status === 'done' ? 'Regenerate'
+                             : 'Generate Bio'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
 
-            {videos.length === 0 && (
-              <div className="bg-bms-card border border-bms-border rounded-xl p-10 text-center">
-                <Play className="w-8 h-8 text-bms-muted mx-auto mb-3 opacity-40" />
-                <p className="text-bms-muted text-sm">No videos imported yet — upload one above to get started</p>
+              {/* Right panel — tips / status summary */}
+              <div className="bg-bms-card border border-bms-border rounded-xl p-5 flex flex-col gap-4 h-fit">
+                <p className="text-xs font-semibold text-bms-muted uppercase tracking-wide">How it works</p>
+                <ol className="space-y-3">
+                  {[
+                    { n: '1', t: 'Upload a video', d: 'Drop or browse to add one video at a time to the list.' },
+                    { n: '2', t: 'Enter artist name', d: 'Required before any bio can be generated.' },
+                    { n: '3', t: 'Generate Bio', d: 'Click the button next to each video to create its Instagram caption.' },
+                    { n: '4', t: 'View Results', d: 'Switch to Results to preview, add context, and copy the caption.' },
+                  ].map(({ n, t, d }) => (
+                    <li key={n} className="flex gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-bms-cyan/10 border border-bms-cyan/30 text-bms-cyan text-[10px] font-bold flex-shrink-0 flex items-center justify-center">{n}</span>
+                      <div>
+                        <p className="text-xs font-medium text-bms-text">{t}</p>
+                        <p className="text-[11px] text-bms-muted mt-0.5">{d}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
-            )}
+            </div>
           </motion.div>
         )}
 
