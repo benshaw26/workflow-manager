@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useInView } from 'framer-motion'
 import { useRef } from 'react'
-import { Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, ArrowRight } from 'lucide-react'
+import { Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, ArrowRight } from 'lucide-react'
 import { AUTOMATIONS } from '@/lib/constants'
 import { staggerContainer, staggerItem } from '@/lib/animations'
 
 const iconMap: Record<string, React.ElementType> = {
-  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2,
+  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle,
 }
 
 export function ServicesSection() {
@@ -48,7 +48,7 @@ export function ServicesSection() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {AUTOMATIONS.map((automation) => {
-            const Icon = iconMap[automation.icon]
+            const Icon = iconMap[automation.icon] ?? Building2
             return (
               <motion.div
                 key={automation.id}
