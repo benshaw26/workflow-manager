@@ -375,9 +375,9 @@ export default function MontageReference({ references: _externalRefs, onReferenc
                               <span className="text-bms-muted break-all">{String(v)}</span>
                             </div>
                           ))}
-                          {analysis.description && (
+                          {analysis.description != null && (
                             <div className="mt-2 pt-2 border-t border-bms-border text-bms-muted/70 leading-relaxed">
-                              {String(analysis.description)}
+                              {String(analysis.description as string)}
                             </div>
                           )}
                         </div>
