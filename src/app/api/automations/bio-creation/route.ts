@@ -40,52 +40,67 @@ export async function POST(request: Request) {
     })
   }
 
-  // ── Step 1: Research artist's team via Rostr (Google/Serper search) ──────
+  // ── Step 1: Research artist's industry team via Rostr (Serper/Google) ────
   let teamHandles = ''
   try {
     let rostrSnippet = ''
 
-    // Try Serper (Google Search API) to find Rostr profile
     if (process.env.SERPER_API_KEY) {
-      const serperRes = await fetch('https://google.serper.dev/search', {
-        method: 'POST',
-        headers: {
-          'X-API-KEY': process.env.SERPER_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ q: `"${artistName}" site:rostr.com`, num: 3 }),
-      })
-      if (serperRes.ok) {
-        const serperData = await serperRes.json() as {
-          organic?: Array<{ title: string; snippet: string; link: string }>
-        }
-        const hits = serperData.organic ?? []
-        rostrSnippet = hits
-          .filter(h => h.link.includes('rostr.com'))
-          .map(h => `${h.title}\n${h.snippet}`)
-          .join('\n\n')
-        console.log('[BIO-CREATION] Rostr snippet:', rostrSnippet.slice(0, 300))
-      }
+      // Run two searches in parallel: Rostr profile + general team/label search
+      const [rostrRes, teamRes2] = await Promise.all([
+        fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'X-API-KEY': process.env.SERPER_API_KEY!, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: `"${artistName}" site:rostr.com management label agency`, num: 5 }),
+        }),
+        fetch('https://google.serper.dev/search', {
+          method: 'POST',
+          headers: { 'X-API-KEY': process.env.SERPER_API_KEY!, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: `"${artistName}" record label management booking agency publisher`, num: 5 }),
+        }),
+      ])
+
+      const [d1, d2] = await Promise.all([
+        rostrRes.ok ? rostrRes.json() as Promise<{ organic?: Array<{ title: string; snippet: string; link: string }> }> : Promise.resolve({ organic: [] }),
+        teamRes2.ok ? teamRes2.json() as Promise<{ organic?: Array<{ title: string; snippet: string; link: string }> }> : Promise.resolve({ organic: [] }),
+      ])
+
+      const allHits = [...(d1.organic ?? []), ...(d2.organic ?? [])]
+      rostrSnippet = allHits
+        .map(h => `${h.title}\n${h.snippet}`)
+        .join('\n\n')
+        .slice(0, 2000)
+
+      console.log('[BIO-CREATION] team snippet:', rostrSnippet.slice(0, 300))
     }
 
-    // Ask Claude to extract/confirm Instagram handles from Rostr snippet + its own knowledge
+    // Ask Claude to identify industry team members and their Instagram handles
     const teamRes = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 300,
+      max_tokens: 400,
       messages: [{
         role: 'user',
-        content: `You are a music industry researcher. Your task is to find the Instagram handles for the team around the artist "${artistName}".
-${rostrSnippet ? `\nHere is data found on Rostr.com for this artist:\n---\n${rostrSnippet}\n---\n` : ''}
-Using the Rostr data above AND your own training knowledge, list the Instagram handles of: record label, management company, frequent producers, frequent featured artists, and booking/PR agencies — only ones you are confident about.
+        content: `You are a music industry researcher. Find the OFFICIAL INDUSTRY TEAM Instagram handles for the artist "${artistName}".
 
-Reply with ONLY a space-separated list of @handles (e.g. @sonymusic @scooterbraun). If you don't know any with confidence, reply with the single word NONE. No explanation.`,
+ONLY include these role types:
+- Record label (e.g. @islandrecords, @columbiarecords)
+- Management company or manager (e.g. @scooterbraun)
+- Booking agency (e.g. @utamusic, @wwentertainment)
+- Music publisher (e.g. @kobaltmusic)
+
+DO NOT include: photographers, videographers, collaborating artists, fan pages, or anyone who simply appears in the content.
+${rostrSnippet ? `\nSearch data found:\n---\n${rostrSnippet}\n---\n` : ''}
+Use this data AND your training knowledge. Only include handles you are confident are correct.
+
+Reply with ONLY a space-separated list of @handles. If none are known with confidence, reply: NONE`,
       }],
     })
     const raw = teamRes.content
       .filter((b): b is Anthropic.TextBlock => b.type === 'text')
       .map((b) => b.text.trim())
       .join(' ')
-    teamHandles = raw === 'NONE' ? '' : raw
+    teamHandles = raw.startsWith('NONE') ? '' : raw
+    console.log('[BIO-CREATION] team handles:', teamHandles)
   } catch {
     // Non-fatal — continue without team handles
   }
