@@ -53,11 +53,6 @@ Write the output in EXACTLY this format — no preamble, no explanation:
 
 ---MAIN---
 [1-3 lines of caption copy. Match the mood of the video and context. Sound like ${artistName} wrote it personally. 1-2 emoji max. Keep line 1 under 125 chars.]
-.
-.
-.
-.
-.
 #tag1 #tag2 #tag3 #tag4 #tag5
 ---END_MAIN---
 
@@ -87,8 +82,12 @@ Hashtag rules: mix artist-name tags, genre tags, mood tags, and niche tags. All 
     const mainMatch    = rawText.match(/---MAIN---\n([\s\S]*?)---END_MAIN---/)
     const commentMatch = rawText.match(/---COMMENT---\n([\s\S]*?)---END_COMMENT---/)
 
-    const mainCaption  = mainMatch?.[1]?.trim() ?? rawText.trim()
-    const firstComment = commentMatch?.[1]?.trim() ?? ''
+    // Strip any dot-only separator lines Claude may still include
+    const stripDots = (s: string) =>
+      s.split('\n').filter(line => line.trim() !== '.').join('\n').trim()
+
+    const mainCaption  = stripDots(mainMatch?.[1] ?? rawText)
+    const firstComment = stripDots(commentMatch?.[1] ?? '')
 
     if (!mainCaption) {
       return NextResponse.json({ error: 'Failed to generate bio — no content returned. Please try again.' }, { status: 500 })
