@@ -86,7 +86,7 @@ export function SocialSchedulerClient({ userName }: { userName: string }) {
   }, [])
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items
+    const items = Array.from(e.clipboardData.items)
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         processImageFile(item.getAsFile()!)
