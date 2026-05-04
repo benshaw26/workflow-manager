@@ -53,6 +53,7 @@ Write the output in EXACTLY this format — no preamble, no explanation:
 
 ---MAIN---
 [1-3 lines of caption copy. Match the mood of the video and context. Sound like ${artistName} wrote it personally. 1-2 emoji max. Keep line 1 under 125 chars.]
+
 #tag1 #tag2 #tag3 #tag4 #tag5
 ---END_MAIN---
 
