@@ -10,6 +10,7 @@ const ALL_AUTOMATION_IDS = [
   'email-response',
   'bio-creation',
   'montage-creation',
+  'receipt-forwarder',
 ]
 
 export async function seedAdminIfNeeded() {

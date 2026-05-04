@@ -182,6 +182,29 @@ export const AUTOMATIONS: Automation[] = [
       'Artist promotional content',
     ],
   },
+  {
+    id: 'receipt-forwarder',
+    title: 'Receipt Forwarder',
+    tagline: 'Scans Gmail for Uber and RingGo receipts and forwards them to your expenses address.',
+    icon: 'Receipt',
+    category: 'Email',
+    color: 'cyan',
+    launchUrl: '/receipt-forwarder',
+    description:
+      'Automatically scan your Gmail inbox for Uber and RingGo receipts and forward them to your expenses or accounting email address. Supports custom filters, lookback windows, and WhatsApp notifications.',
+    benefits: [
+      'Automatically finds Uber and RingGo receipts in Gmail',
+      'Forwards to any email address for expense tracking',
+      'Configurable lookback window from 1 hour to 90 days',
+      'Custom sender and subject keyword filters',
+      'Optional WhatsApp notification per receipt forwarded',
+    ],
+    useCases: [
+      'Employees submitting business travel expense claims',
+      'Finance teams collecting receipt data automatically',
+      'Contractors tracking client-billable transport costs',
+    ],
+  },
 ]
 
 export const NAV_LINKS = [
