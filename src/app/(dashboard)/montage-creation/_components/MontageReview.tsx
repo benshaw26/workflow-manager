@@ -7,8 +7,12 @@ import {
   ExternalLink, Lightbulb, Trophy, Zap, Clapperboard,
 } from 'lucide-react'
 
-const API    = '/api/montage-proxy/montage'
-const STREAM = '/api/montage-proxy/montage/file'
+// Direct browser-to-localhost — matches page.tsx design.
+// The Vercel proxy cannot reach the user's local server, so we call it directly.
+// The montage server has full CORS + Private-Network headers so the browser can reach it.
+const MONTAGE_LOCAL = 'http://localhost:3001'
+const API    = `${MONTAGE_LOCAL}/api/montage`
+const STREAM = `${MONTAGE_LOCAL}/api/montage/file`
 
 interface ReviewBreakdown {
   overallScore: number
@@ -194,6 +198,7 @@ function MontageCard({
         <div className="relative shrink-0" style={{ width: compact ? 90 : 120 }}>
           <video
             src={`${STREAM}/${montage.id}`}
+            crossOrigin="anonymous"
             controls
             preload="metadata"
             className="rounded-lg bg-bms-darker w-full"
