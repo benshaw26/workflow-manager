@@ -1381,7 +1381,10 @@ export default function MarketingPlanPage() {
     setStage(1)
     setError(null)
     setQuickWinsDone(new Set())
+    setSocialAudit(null)
     setActiveTab('overview')
+    // Fire social audit in parallel — it runs concurrently and populates the Social Audit tab
+    runSocialAudit()
 
     const res = await fetch('/api/automations/marketing-plan', {
       method: 'POST',
