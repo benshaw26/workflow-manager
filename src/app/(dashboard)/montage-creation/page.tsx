@@ -192,7 +192,17 @@ export default function MontageCreatorPage() {
     }
   }, [sessionId])
 
-  const fetchReferences = useCallback(() => {
+  const fetchReferences = useCallback(async () => {
+    // Try fetching from the local montage server first (source of truth)
+    try {
+      const res = await fetch(`${API}/references`, { cache: 'no-store', signal: AbortSignal.timeout(2000) })
+      if (res.ok) {
+        const data = await res.json()
+        const serverRefs = data.references ?? []
+        if (serverRefs.length > 0) { setReferences(serverRefs); return }
+      }
+    } catch { /* server offline — fall back to localStorage */ }
+    // Fallback: localStorage (populated when user uploads via the References tab)
     try {
       const stored = JSON.parse(localStorage.getItem('montage-references-v1') ?? '[]')
       setReferences(stored)
@@ -257,11 +267,6 @@ export default function MontageCreatorPage() {
   const handleStartProcessing = useCallback(async (paths: string[]) => {
     if (paths.length === 0) return
 
-    if (isCloud) {
-      setError('Video rendering requires the Relay desktop app running on your computer. This feature is not available in the cloud version — open the app locally at localhost:3100 to use it.')
-      return
-    }
-
     if (references.length === 0) {
       setError('Please upload at least one reference video before processing clips.')
       setActiveTab('reference')
@@ -300,7 +305,7 @@ export default function MontageCreatorPage() {
       setIsProcessing(false)
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('fetch') || msg.includes('502') || msg.includes('NetworkError')) {
-        setError('Video rendering requires the Relay desktop engine to be running on your computer. Open a terminal and run: node jarvis-server.js — then try again.')
+        setError('Could not reach the montage server. Make sure it is running: cd "C:\\Users\\singa\\Desktop\\workflow-manager" && node montage-server.js')
       } else {
         setError(`Failed to start processing: ${msg}`)
       }
