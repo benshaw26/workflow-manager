@@ -115,23 +115,19 @@ export default function MontageCreatorPage() {
   // Health-check the montage server directly from the browser (client-side).
   // We cannot use a Vercel server-side proxy because Vercel's localhost ≠ user's PC.
   // Modern browsers allow HTTPS → http://localhost fetches (W3C secure contexts spec).
+  // Note: any HTTP response (even 4xx) means the server is reachable = online.
+  // Only a network error / timeout / CORS block means offline.
   const checkServer = useCallback(async () => {
     setServerChecking(true)
     try {
-      // Ping the health endpoint on the local montage server
-      const res = await fetch(`${MONTAGE_LOCAL}/api/montage/health`, {
+      await fetch(`${MONTAGE_LOCAL}/api/montage/health`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(3000),
       })
-      setServerOnline(res.ok)
+      // Any response (200, 404, etc.) means the server is reachable
+      setServerOnline(true)
     } catch {
-      // Try pinging the root as a fallback
-      try {
-        await fetch(MONTAGE_LOCAL, { cache: 'no-store', signal: AbortSignal.timeout(2000) })
-        setServerOnline(true)
-      } catch {
-        setServerOnline(false)
-      }
+      setServerOnline(false)
     } finally {
       setServerChecking(false)
     }
