@@ -56,8 +56,9 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
       }
     }
 
-    // SSE streams — return a streaming response
     const contentType = upstream.headers.get('Content-Type') ?? ''
+
+    // SSE streams — return a streaming response
     if (contentType.includes('text/event-stream')) {
       return new NextResponse(upstream.body, {
         status: upstream.status,
@@ -66,6 +67,20 @@ async function proxy(req: NextRequest, { params }: { params: Promise<{ path: str
           'Cache-Control': 'no-cache',
           Connection: 'keep-alive',
         },
+      })
+    }
+
+    // Binary / video content — stream directly; never buffer into memory.
+    // This handles video/mp4, application/octet-stream, and range (206) responses.
+    if (
+      contentType.startsWith('video/') ||
+      contentType.startsWith('image/') ||
+      contentType === 'application/octet-stream' ||
+      upstream.status === 206
+    ) {
+      return new NextResponse(upstream.body, {
+        status: upstream.status,
+        headers: responseHeaders,
       })
     }
 
