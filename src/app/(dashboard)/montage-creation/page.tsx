@@ -10,6 +10,7 @@ import MontageDropbox from './_components/MontageDropbox'
 import MontageReference from './_components/MontageReference'
 import MontagePipeline from './_components/MontagePipeline'
 import MontageReview from './_components/MontageReview'
+import MontageKnowledge from './_components/MontageKnowledge'
 
 // Direct client-side calls to the local montage server — bypasses Vercel proxy
 // which cannot reach the user's localhost. CORS is fully open on montage-server.js.
@@ -832,17 +833,8 @@ node montage-server.js`}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col items-center justify-center py-20 text-center gap-4"
             >
-              <div className="w-14 h-14 rounded-2xl bg-bms-darker border border-bms-border flex items-center justify-center">
-                <Database className="w-6 h-6 text-bms-muted" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-bms-text mb-1">Knowledge Base</p>
-                <p className="text-xs text-bms-muted max-w-xs">
-                  Available in the desktop app. The knowledge base stores learned editing rules from your past montage runs.
-                </p>
-              </div>
+              <MontageKnowledge />
             </motion.div>
           )}
 
@@ -853,17 +845,8 @@ node montage-server.js`}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col items-center justify-center py-20 text-center gap-4"
             >
-              <div className="w-14 h-14 rounded-2xl bg-bms-darker border border-bms-border flex items-center justify-center">
-                <Brain className="w-6 h-6 text-bms-muted" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-bms-text mb-1">AI Brain</p>
-                <p className="text-xs text-bms-muted max-w-xs">
-                  Available in the desktop app. AI learning insights and neural feedback loops are managed locally by the Relay engine.
-                </p>
-              </div>
+              <MontageKnowledge />
             </motion.div>
           )}
         </AnimatePresence>
