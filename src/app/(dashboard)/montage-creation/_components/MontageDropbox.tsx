@@ -6,7 +6,8 @@ import {
   RefreshCw, AlertTriangle,
 } from 'lucide-react'
 
-const LOCAL_SCAN_API = '/api/montage/local/scan'
+// Call the local montage server directly — Vercel cannot access the user's filesystem
+const LOCAL_SCAN_API = 'http://localhost:3001/api/montage/local/scan'
 
 interface Clip {
   name: string
