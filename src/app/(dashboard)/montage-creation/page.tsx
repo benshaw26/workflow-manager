@@ -11,8 +11,11 @@ import MontageReference from './_components/MontageReference'
 import MontagePipeline from './_components/MontagePipeline'
 import MontageReview from './_components/MontageReview'
 
-const API          = '/api/montage-proxy/montage'
-const PROCESS_API  = '/api/montage-proxy/montage/process'
+// Direct client-side calls to the local montage server — bypasses Vercel proxy
+// which cannot reach the user's localhost. CORS is fully open on montage-server.js.
+const MONTAGE_LOCAL = 'http://localhost:3001'
+const API           = `${MONTAGE_LOCAL}/api/montage`
+const PROCESS_API   = `${MONTAGE_LOCAL}/api/montage/process`
 
 type TabId = 'dropbox' | 'reference' | 'pipeline' | 'review' | 'knowledge' | 'learning'
 
@@ -109,15 +112,26 @@ export default function MontageCreatorPage() {
     setIsCloud(getIsCloud())
   }, [])
 
-  // Health-check the montage server
+  // Health-check the montage server directly from the browser (client-side).
+  // We cannot use a Vercel server-side proxy because Vercel's localhost ≠ user's PC.
+  // Modern browsers allow HTTPS → http://localhost fetches (W3C secure contexts spec).
   const checkServer = useCallback(async () => {
     setServerChecking(true)
     try {
-      const res = await fetch('/api/montage/health', { cache: 'no-store' })
-      const data = await res.json() as { online: boolean }
-      setServerOnline(data.online)
+      // Ping the health endpoint on the local montage server
+      const res = await fetch(`${MONTAGE_LOCAL}/api/montage/health`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
+      })
+      setServerOnline(res.ok)
     } catch {
-      setServerOnline(false)
+      // Try pinging the root as a fallback
+      try {
+        await fetch(MONTAGE_LOCAL, { cache: 'no-store', signal: AbortSignal.timeout(2000) })
+        setServerOnline(true)
+      } catch {
+        setServerOnline(false)
+      }
     } finally {
       setServerChecking(false)
     }
