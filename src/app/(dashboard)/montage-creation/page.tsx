@@ -80,12 +80,6 @@ interface ActiveSession {
   sessionName: string | null
 }
 
-// Detect if running on cloud (Vercel) vs locally — evaluated client-side only
-function getIsCloud(): boolean {
-  if (typeof window === 'undefined') return false
-  return !window.location.hostname.includes('localhost')
-}
-
 export default function MontageCreatorPage() {
   const [activeTab, setActiveTab]         = useState<TabId>('dropbox')
   const [selectedClips, setSelectedClips] = useState<string[]>([])
@@ -99,18 +93,12 @@ export default function MontageCreatorPage() {
   const [error, setError]                 = useState<string | null>(null)
   const [rerunClipNames, setRerunClipNames] = useState<string[] | null>(null)
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([])
-  const [isCloud, setIsCloud]             = useState(false)
   const [serverOnline, setServerOnline]   = useState<boolean | null>(null)
   const [serverChecking, setServerChecking] = useState(false)
   const [showStartPanel, setShowStartPanel] = useState(false)
   const [cmdCopied, setCmdCopied]         = useState(false)
 
   const eventSourceRef = useRef<EventSource | null>(null)
-
-  // Determine cloud vs local on mount (client-side only)
-  useEffect(() => {
-    setIsCloud(getIsCloud())
-  }, [])
 
   // Health-check the montage server directly from the browser (client-side).
   // We cannot use a Vercel server-side proxy because Vercel's localhost ≠ user's PC.
@@ -266,12 +254,6 @@ export default function MontageCreatorPage() {
 
   const handleStartProcessing = useCallback(async (paths: string[]) => {
     if (paths.length === 0) return
-
-    if (references.length === 0) {
-      setError('Please upload at least one reference video before processing clips.')
-      setActiveTab('reference')
-      return
-    }
 
     setError(null)
     setIsProcessing(true)
@@ -732,7 +714,6 @@ node montage-server.js`}
                 selectedClips={selectedClips}
                 onSelectedClipsChange={setSelectedClips}
                 onStartProcessing={handleStartProcessing}
-                hasReferences={references.length > 0}
                 rerunClipNames={rerunClipNames ?? undefined}
                 onRerunDismiss={() => setRerunClipNames(null)}
               />

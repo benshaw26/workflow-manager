@@ -22,7 +22,6 @@ interface Props {
   selectedClips: string[]
   onSelectedClipsChange: (paths: string[]) => void
   onStartProcessing: (paths: string[]) => void
-  hasReferences: boolean
   rerunClipNames?: string[]
   onRerunDismiss?: () => void
 }
@@ -100,7 +99,7 @@ function ClipGrid({ clips, selectedClips, onToggle, onSelectAll }: {
 
 export default function MontageDropbox({
   selectedClips, onSelectedClipsChange, onStartProcessing,
-  hasReferences, rerunClipNames, onRerunDismiss,
+  rerunClipNames, onRerunDismiss,
 }: Props) {
   const [localPath, setLocalPath] = useState('C:\\Users\\')
   const [clips, setClips]         = useState<Clip[]>([])
@@ -207,8 +206,7 @@ export default function MontageDropbox({
           <span className="text-xs text-bms-muted">{selectedClips.length} clip{selectedClips.length !== 1 ? 's' : ''} selected</span>
           <button
             onClick={() => onStartProcessing(selectedClips)}
-            disabled={selectedClips.length === 0 || !hasReferences}
-            title={!hasReferences ? 'Upload a reference video first' : ''}
+            disabled={selectedClips.length === 0}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-bms-cyan/15 text-bms-cyan border border-bms-cyan/30 hover:bg-bms-cyan/25"
           >
             Process Selected <ChevronRight className="w-4 h-4" />
