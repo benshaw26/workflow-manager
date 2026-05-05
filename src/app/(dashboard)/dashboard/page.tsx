@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import {
   Globe, Bot, Megaphone, FileText, Mail, Inbox, MessageSquare,
-  Calendar, CheckCircle2, Clock, Zap, ArrowRight, Headphones, Clapperboard, Receipt,
+  Calendar, CheckCircle2, Clock, Zap, ArrowRight, Headphones, Clapperboard, Receipt, TrendingUp,
 } from 'lucide-react'
 
 const SERVICE_META: Record<string, { icon: React.ElementType; color: string; desc: string; category: string }> = {
@@ -18,6 +18,7 @@ const SERVICE_META: Record<string, { icon: React.ElementType; color: string; des
   'bio-creation':       { icon: MessageSquare, color: '#00d4ff', desc: 'AI-crafted Instagram captions from your videos.', category: 'Marketing' },
   'montage-creation':   { icon: Clapperboard,  color: '#00d4ff', desc: 'AI-powered video montage pipeline — clips to final cut.', category: 'Marketing' },
   'receipt-forwarder':  { icon: Receipt,       color: '#00d4ff', desc: 'Scans Gmail for Uber and RingGo receipts and forwards them to your expenses address.', category: 'Email' },
+  'marketing-plan':     { icon: TrendingUp,    color: '#00d4ff', desc: 'Deep 5-stage brand analysis and full marketing plan from a single website URL.', category: 'Marketing' },
 }
 
 async function getUserServices(userId: string) {

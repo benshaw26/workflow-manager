@@ -13,7 +13,7 @@ import { staggerContainer, staggerItem } from '@/lib/animations'
 import type { Automation } from '@/types'
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, Clapperboard, Receipt,
+  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, Clapperboard, Receipt, TrendingUp,
 }
 
 const WEIGHTS: Record<string, number> = {

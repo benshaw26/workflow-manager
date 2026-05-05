@@ -20,6 +20,7 @@ const AUTOMATION_IDS = [
   { id: 'bio-creation',       label: 'Bio Creation' },
   { id: 'montage-creation',   label: 'Montage Creator' },
   { id: 'receipt-forwarder',  label: 'Receipt Forwarder' },
+  { id: 'marketing-plan',     label: 'Marketing Plan' },
 ]
 
 type UserRow = {

@@ -28,6 +28,7 @@ model User {
   sessions           Session[]
   bioCreationRuns    BioCreationRun[]
   userAutomations    UserAutomation[]
+  marketingPlanRuns  MarketingPlanRun[]
 
   @@map("users")
 }
@@ -141,6 +142,17 @@ model BioCreationRun {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("bio_creation_runs")
+}
+
+model MarketingPlanRun {
+  id         String   @id @default(cuid())
+  userId     String
+  websiteUrl String
+  plan       String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("marketing_plan_runs")
 }
 
 model Booking {

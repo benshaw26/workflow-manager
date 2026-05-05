@@ -58,7 +58,7 @@ export const authOptions: NextAuthOptions = {
           const ALL_IDS = [
             'property-analysis','invoice-creation','content-creation',
             'ai-chatbot','email-marketing','email-response','bio-creation',
-            'montage-creation','receipt-forwarder',
+            'montage-creation','receipt-forwarder','marketing-plan',
           ]
           for (const automationId of ALL_IDS) {
             await prisma.userAutomation.upsert({

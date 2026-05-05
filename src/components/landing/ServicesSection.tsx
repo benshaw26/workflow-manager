@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useInView } from 'framer-motion'
 import { useRef } from 'react'
-import { Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, Clapperboard, Receipt, ArrowRight } from 'lucide-react'
+import { Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, Clapperboard, Receipt, TrendingUp, ArrowRight } from 'lucide-react'
 import { AUTOMATIONS } from '@/lib/constants'
 import { staggerContainer, staggerItem } from '@/lib/animations'
 
 const iconMap: Record<string, React.ElementType> = {
-  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, Clapperboard, Receipt,
+  Building2, FileText, PenTool, MessageSquare, Mail, Inbox, Share2, UserCircle, Clapperboard, Receipt, TrendingUp,
 }
 
 export function ServicesSection() {

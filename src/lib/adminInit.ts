@@ -11,6 +11,7 @@ const ALL_AUTOMATION_IDS = [
   'bio-creation',
   'montage-creation',
   'receipt-forwarder',
+  'marketing-plan',
 ]
 
 export async function seedAdminIfNeeded() {

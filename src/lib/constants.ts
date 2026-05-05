@@ -183,6 +183,29 @@ export const AUTOMATIONS: Automation[] = [
     ],
   },
   {
+    id: 'marketing-plan',
+    title: 'Marketing Plan',
+    tagline: 'Deep 5-stage brand analysis and full marketing plan from a single website URL.',
+    icon: 'TrendingUp',
+    category: 'Marketing',
+    color: 'cyan',
+    launchUrl: '/marketing-plan',
+    description:
+      'Enter any business website URL and receive a comprehensive, AI-powered marketing plan in minutes. Our 5-stage pipeline researches brand identity, social media presence, competitors, and delivers a full actionable strategy including content calendar, ad plan, and 90-day growth roadmap.',
+    benefits: [
+      'Full brand identity research from a single URL',
+      'Social media discovery across all major platforms',
+      'Competitor analysis with exploitable gaps identified',
+      'Complete content strategy and brand style guide',
+      'Ad strategy, content calendar, and 90-day growth roadmap',
+    ],
+    useCases: [
+      'Marketing agencies onboarding new clients quickly',
+      'Businesses launching or rebranding their digital presence',
+      'Founders who need a full marketing strategy without an agency',
+    ],
+  },
+  {
     id: 'receipt-forwarder',
     title: 'Receipt Forwarder',
     tagline: 'Scans Gmail for Uber and RingGo receipts and forwards them to your expenses address.',
