@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Clapperboard, Cloud, Video, Layers, BookOpen, Brain,
   AlertTriangle, Loader2, CheckCircle2, Database,
+  Terminal, Copy, Check, Wifi, WifiOff, RefreshCw, X,
 } from 'lucide-react'
 import MontageDropbox from './_components/MontageDropbox'
 import MontageReference from './_components/MontageReference'
@@ -96,6 +97,10 @@ export default function MontageCreatorPage() {
   const [rerunClipNames, setRerunClipNames] = useState<string[] | null>(null)
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([])
   const [isCloud, setIsCloud]             = useState(false)
+  const [serverOnline, setServerOnline]   = useState<boolean | null>(null)
+  const [serverChecking, setServerChecking] = useState(false)
+  const [showStartPanel, setShowStartPanel] = useState(false)
+  const [cmdCopied, setCmdCopied]         = useState(false)
 
   const eventSourceRef = useRef<EventSource | null>(null)
 
@@ -103,6 +108,26 @@ export default function MontageCreatorPage() {
   useEffect(() => {
     setIsCloud(getIsCloud())
   }, [])
+
+  // Health-check the montage server
+  const checkServer = useCallback(async () => {
+    setServerChecking(true)
+    try {
+      const res = await fetch('/api/montage/health', { cache: 'no-store' })
+      const data = await res.json() as { online: boolean }
+      setServerOnline(data.online)
+    } catch {
+      setServerOnline(false)
+    } finally {
+      setServerChecking(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    checkServer()
+    const id = setInterval(checkServer, 8000)
+    return () => clearInterval(id)
+  }, [checkServer])
 
   // Connect SSE when sessionId is set
   useEffect(() => {
@@ -396,16 +421,189 @@ export default function MontageCreatorPage() {
         )}
       </motion.div>
 
-      {/* Cloud deployment banner */}
-      {isCloud && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-400/8 border border-amber-400/25 text-amber-400 text-xs">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            <strong>Desktop only:</strong> Video rendering requires the Relay desktop app running on your PC.
-            You can upload clips and references here, but processing must be done locally at localhost:3100.
-          </span>
+      {/* Server Status Banner */}
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-xs transition-colors ${
+        serverOnline === true
+          ? 'bg-emerald-500/8 border-emerald-500/25'
+          : serverOnline === false
+          ? 'bg-red-500/8 border-red-500/25'
+          : 'bg-bms-card border-bms-border'
+      }`}>
+        {/* Status icon */}
+        <div className="shrink-0">
+          {serverChecking && serverOnline === null ? (
+            <Loader2 className="w-4 h-4 text-bms-muted animate-spin" />
+          ) : serverOnline ? (
+            <Wifi className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <WifiOff className="w-4 h-4 text-red-400" />
+          )}
         </div>
-      )}
+
+        {/* Status text */}
+        <div className="flex-1 min-w-0">
+          {serverOnline === true ? (
+            <span className="font-semibold text-emerald-400">Montage server online</span>
+          ) : serverOnline === false ? (
+            <span className="font-semibold text-red-400">Montage server offline — video processing unavailable</span>
+          ) : (
+            <span className="text-bms-muted">Checking server…</span>
+          )}
+          {serverOnline === false && (
+            <span className="text-bms-muted ml-2">Start the server on your PC to enable video rendering.</span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={checkServer}
+            disabled={serverChecking}
+            title="Refresh status"
+            className="p-1.5 rounded-lg text-bms-muted hover:text-bms-text hover:bg-bms-border/40 transition-colors disabled:opacity-40"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${serverChecking ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setShowStartPanel(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors border ${
+              serverOnline
+                ? 'bg-bms-card border-bms-border text-bms-muted hover:text-bms-text'
+                : 'bg-bms-cyan/10 border-bms-cyan/30 text-bms-cyan hover:bg-bms-cyan/20'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            {serverOnline ? 'How to start' : 'Start server'}
+          </button>
+        </div>
+      </div>
+
+      {/* Start Server Panel (modal) */}
+      <AnimatePresence>
+        {showStartPanel && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-40"
+              onClick={() => setShowStartPanel(false)}
+            />
+            {/* Panel */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg"
+            >
+              <div className="bg-bms-darker border border-bms-border rounded-2xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-bms-border">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-bms-cyan/10 border border-bms-cyan/20 flex items-center justify-center">
+                      <Terminal className="w-4 h-4 text-bms-cyan" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-bms-text">Start Montage Server</p>
+                      <p className="text-[11px] text-bms-muted">Run this on your PC to enable video rendering</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowStartPanel(false)}
+                    className="p-1.5 rounded-lg text-bms-muted hover:text-bms-text hover:bg-bms-border/40 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-5 space-y-4">
+                  {/* Step 1 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-bms-cyan/20 border border-bms-cyan/30 flex items-center justify-center text-[10px] font-bold text-bms-cyan shrink-0">1</span>
+                      <p className="text-xs font-semibold text-bms-text">Open PowerShell on your PC</p>
+                    </div>
+                    <p className="text-[11px] text-bms-muted pl-7">
+                      Press <kbd className="px-1.5 py-0.5 rounded bg-bms-border text-bms-text font-mono text-[10px]">Win</kbd> + <kbd className="px-1.5 py-0.5 rounded bg-bms-border text-bms-text font-mono text-[10px]">X</kbd> → Windows PowerShell, or search for <strong className="text-bms-text">PowerShell</strong> in the Start menu.
+                    </p>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-bms-cyan/20 border border-bms-cyan/30 flex items-center justify-center text-[10px] font-bold text-bms-cyan shrink-0">2</span>
+                      <p className="text-xs font-semibold text-bms-text">Copy and paste this command</p>
+                    </div>
+                    <div className="relative ml-7">
+                      <pre className="bg-bms-dark border border-bms-border rounded-xl px-4 py-3 text-[11px] font-mono text-bms-cyan overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+{`cd "C:\\Users\\singa\\Desktop\\workflow-manager"
+node montage-server.js`}
+                      </pre>
+                      <button
+                        onClick={() => {
+                          void navigator.clipboard.writeText(
+                            'cd "C:\\Users\\singa\\Desktop\\workflow-manager"\nnode montage-server.js'
+                          )
+                          setCmdCopied(true)
+                          setTimeout(() => setCmdCopied(false), 2500)
+                        }}
+                        className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors border ${
+                          cmdCopied
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                            : 'bg-bms-card border-bms-border text-bms-muted hover:text-bms-text hover:border-bms-border/60'
+                        }`}
+                      >
+                        {cmdCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        {cmdCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-bms-cyan/20 border border-bms-cyan/30 flex items-center justify-center text-[10px] font-bold text-bms-cyan shrink-0">3</span>
+                      <p className="text-xs font-semibold text-bms-text">Wait for it to say <span className="text-bms-cyan font-mono">Server listening on port 3001</span></p>
+                    </div>
+                    <p className="text-[11px] text-bms-muted pl-7">
+                      Then come back here — the status will turn green automatically within a few seconds.
+                    </p>
+                  </div>
+
+                  {/* Status check */}
+                  <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs ${
+                    serverOnline
+                      ? 'bg-emerald-500/8 border-emerald-500/25 text-emerald-400'
+                      : 'bg-bms-card border-bms-border text-bms-muted'
+                  }`}>
+                    {serverOnline ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <Loader2 className={`w-4 h-4 shrink-0 ${serverChecking ? 'animate-spin' : ''}`} />
+                    )}
+                    {serverOnline
+                      ? 'Server is online — you\'re ready to go!'
+                      : 'Waiting for server to come online…'}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 pb-5">
+                  <button
+                    onClick={() => setShowStartPanel(false)}
+                    className="w-full py-2.5 rounded-xl bg-bms-cyan text-bms-dark text-sm font-bold hover:bg-bms-cyan/90 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Paused Banner */}
       <AnimatePresence>
