@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Brain, Zap, TrendingUp, Trash2, Plus, RefreshCw, CheckCircle2,
-  Loader2, ChevronDown, ChevronUp, Sparkles, BookOpen, BarChart2,
+  Loader2, ChevronDown, ChevronUp, BookOpen, Database,
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -152,7 +152,7 @@ function EntryCard({ entry, onDelete }: { entry: KbEntry; onDelete: (id: string)
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md border ${accent.bg} ${accent.text} ${accent.border}`}>
               {accent.label}
             </span>
-            {isAI && <Sparkles className="w-3 h-3 text-amber-400" />}
+            {isAI && <Zap className="w-3 h-3 text-amber-400" />}
           </div>
           <span className="text-sm font-medium text-bms-text leading-snug">{entry.title}</span>
         </div>
@@ -348,7 +348,7 @@ export default function MontageKnowledge({}: Props) {
             ) : seeded ? (
               <><CheckCircle2 className="w-3.5 h-3.5" />Seeded ✓</>
             ) : (
-              <><Sparkles className="w-3.5 h-3.5" />Seed Framework Knowledge</>
+              <><Zap className="w-3.5 h-3.5" />Seed Framework Knowledge</>
             )}
           </button>
 
@@ -462,7 +462,7 @@ export default function MontageKnowledge({}: Props) {
           {/* Platform cards */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2 mb-1">
-              <BarChart2 className="w-4 h-4 text-bms-cyan" />
+              <TrendingUp className="w-4 h-4 text-bms-cyan" />
               <span className="text-sm font-semibold text-bms-text">Platform Scoring Formulas</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
