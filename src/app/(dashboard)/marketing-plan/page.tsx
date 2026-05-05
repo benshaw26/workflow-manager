@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import {
   TrendingUp, Globe, ChevronDown, ChevronUp, Clock, Target,
   Zap, Calendar, CheckCircle2, Circle, Sparkles, Loader2,
   AlertTriangle, BarChart, Users, Hash, Palette, Megaphone,
-  ArrowRight,
+  ArrowRight, BookOpen, X, Layers, BarChart2, Wrench,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PLATFORMS, INDUSTRIES, TRENDING_2025, RESULTS_TABLE, INDUSTRY_BENCHMARKS, MARKETING_SKILLS } from '../knowledge-base/kb-data'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -814,6 +816,177 @@ function GrowthTab({ plan, quickWinsDone, setQuickWinsDone }: {
   )
 }
 
+// ─── Tab: Results ─────────────────────────────────────────────────────────────
+
+const INDUSTRY_GROWTH: Record<string, { conservative: number; realistic: number; optimistic: number }> = {
+  'e-commerce':            { conservative: 150,  realistic: 400,  optimistic: 1200 },
+  'saas':                  { conservative: 100,  realistic: 250,  optimistic: 600  },
+  'hospitality':           { conservative: 200,  realistic: 600,  optimistic: 1500 },
+  'real estate':           { conservative: 150,  realistic: 350,  optimistic: 800  },
+  'fitness':               { conservative: 300,  realistic: 700,  optimistic: 2000 },
+  'food':                  { conservative: 250,  realistic: 600,  optimistic: 1800 },
+  'beauty':                { conservative: 350,  realistic: 900,  optimistic: 3000 },
+  'professional services': { conservative: 80,   realistic: 200,  optimistic: 500  },
+  'construction':          { conservative: 80,   realistic: 180,  optimistic: 400  },
+  'healthcare':            { conservative: 60,   realistic: 150,  optimistic: 350  },
+}
+
+function ResultsTab({ plan }: { plan: PlanData }) {
+  const industryKey = (plan.brand?.industry ?? '').toLowerCase()
+  const growth = INDUSTRY_GROWTH[industryKey] ?? { conservative: 100, realistic: 300, optimistic: 800 }
+
+  const milestones = [
+    {
+      month: 'Month 1',
+      color: 'border-bms-cyan/30',
+      numColor: 'text-bms-cyan',
+      bg: 'bg-bms-cyan/5',
+      outcomes: [
+        'Brand voice and content pillars established',
+        `${growth.conservative}-${Math.round(growth.conservative * 1.5)} new followers across primary platforms`,
+        'Algorithm learning curve completed — reach begins expanding',
+        'First batch of high-quality content published and indexed',
+        '1-3 inbound leads or inquiries from social content',
+      ],
+    },
+    {
+      month: 'Month 2',
+      color: 'border-purple-500/30',
+      numColor: 'text-purple-400',
+      bg: 'bg-purple-500/5',
+      outcomes: [
+        'Organic reach expands to non-followers (algorithm boost)',
+        `${Math.round(growth.realistic * 0.8)}-${growth.realistic} total new followers accumulated`,
+        'Engagement rate stabilises at 2-5% (above industry average)',
+        '5-15 inbound leads or inquiries from social content',
+        'First viral or high-performing piece of content identified',
+      ],
+    },
+    {
+      month: 'Month 3',
+      color: 'border-emerald-500/30',
+      numColor: 'text-emerald-400',
+      bg: 'bg-emerald-500/5',
+      outcomes: [
+        `Compounding effect kicks in — ${growth.realistic}-${growth.optimistic} monthly follower growth`,
+        'Social becomes a consistent, predictable lead source',
+        '15-40+ inbound leads per month from content alone',
+        'Paid ads (if running) achieving 3-8x ROAS',
+        'Brand awareness measurably increased in target market',
+      ],
+    },
+  ]
+
+  return (
+    <div className="space-y-8">
+      {/* Projected follower growth */}
+      <div className="bg-bms-card border border-bms-border rounded-2xl p-6">
+        <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-bms-cyan" />
+          Projected Monthly Follower Growth
+          {plan.brand?.industry && (
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-bms-border text-bms-muted capitalize">{plan.brand.industry}</span>
+          )}
+        </h3>
+        <div className="space-y-4">
+          {[
+            { label: 'Conservative', value: growth.conservative, color: 'bg-blue-400', textColor: 'text-blue-400', note: 'Low effort / 1-2 posts/week' },
+            { label: 'Realistic',    value: growth.realistic,    color: 'bg-bms-cyan', textColor: 'text-bms-cyan', note: 'Medium effort / 3-5 posts/week' },
+            { label: 'Optimistic',   value: growth.optimistic,   color: 'bg-emerald-400', textColor: 'text-emerald-400', note: 'High effort / daily content' },
+          ].map(tier => (
+            <div key={tier.label}>
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className={cn('font-semibold', tier.textColor)}>{tier.label}</span>
+                <span className="text-bms-muted">{tier.note}</span>
+                <span className={cn('font-bold', tier.textColor)}>+{tier.value.toLocaleString()} / mo</span>
+              </div>
+              <div className="h-2 bg-bms-border rounded-full overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full', tier.color)}
+                  style={{ width: `${Math.min(100, (tier.value / growth.optimistic) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ROI projection */}
+      {plan.adStrategy && plan.adStrategy.length > 0 && (
+        <div className="bg-bms-card border border-bms-border rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
+            <BarChart className="w-4 h-4 text-purple-400" />
+            Paid Ad ROI Projection
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { budget: '$500/mo', platforms: plan.adStrategy.slice(0, 2).map(a => a.platform).join(' + '), conservativeROAS: '2-3x', realisticROAS: '4-6x', leads: '8-15 leads' },
+              { budget: '$1,500/mo', platforms: plan.adStrategy.slice(0, 2).map(a => a.platform).join(' + '), conservativeROAS: '3-4x', realisticROAS: '5-8x', leads: '25-40 leads' },
+              { budget: '$3,000/mo', platforms: plan.adStrategy.map(a => a.platform).join(' + '), conservativeROAS: '4-5x', realisticROAS: '6-10x', leads: '50-100+ leads' },
+            ].map((scenario, i) => (
+              <div key={i} className="bg-bms-darker rounded-xl p-4 space-y-2">
+                <p className="font-bold text-bms-cyan text-base">{scenario.budget}</p>
+                <p className="text-[10px] text-bms-muted">Platforms: {scenario.platforms}</p>
+                <div>
+                  <p className="text-[9px] text-bms-muted uppercase tracking-wide">Conservative ROAS</p>
+                  <p className="text-sm font-semibold text-bms-text">{scenario.conservativeROAS}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-bms-muted uppercase tracking-wide">Realistic ROAS</p>
+                  <p className="text-sm font-semibold text-emerald-400">{scenario.realisticROAS}</p>
+                </div>
+                <div className="pt-1 border-t border-bms-border">
+                  <p className="text-xs text-bms-muted">{scenario.leads}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Success milestones */}
+      <div>
+        <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
+          <Target className="w-4 h-4" />
+          Success Milestones
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {milestones.map(m => (
+            <div key={m.month} className={cn('bg-bms-card border rounded-2xl p-5 space-y-3', m.color)}>
+              <div className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold', m.bg, m.numColor)}>
+                {m.month}
+              </div>
+              <ul className="space-y-1.5">
+                {m.outcomes.map((outcome, j) => (
+                  <li key={j} className="flex items-start gap-2 text-xs text-bms-text">
+                    <ArrowRight className={cn('w-3 h-3 flex-shrink-0 mt-0.5', m.numColor)} />
+                    {outcome}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Knowledge Base CTA */}
+      <div className="bg-bms-cyan/5 border border-bms-cyan/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h3 className="font-semibold text-bms-text mb-1">Want deeper insights?</h3>
+          <p className="text-sm text-bms-muted">Explore platform guides, industry benchmarks, and proven 2025 strategies in the Knowledge Base.</p>
+        </div>
+        <Link
+          href="/knowledge-base"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-bms-cyan text-bms-dark font-semibold text-sm hover:bg-bms-cyan/90 transition-colors whitespace-nowrap"
+        >
+          <BookOpen className="w-4 h-4" />
+          View Knowledge Base
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function MarketingPlanPage() {
@@ -823,7 +996,9 @@ export default function MarketingPlanPage() {
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'platforms' | 'content' | 'ads' | 'growth'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'platforms' | 'content' | 'ads' | 'growth' | 'results'>('overview')
+  const [showKB, setShowKB] = useState(false)
+  const [kbTab, setKbTab] = useState<'platforms' | 'industries' | 'trending' | 'results' | 'benchmarks' | 'skills'>('platforms')
   const [history, setHistory] = useState<HistoryRun[]>([])
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [quickWinsDone, setQuickWinsDone] = useState<Set<number>>(new Set())
@@ -901,28 +1076,244 @@ export default function MarketingPlanPage() {
     return `${Math.floor(hrs / 24)}d ago`
   }
 
-  const TABS: { id: 'overview' | 'platforms' | 'content' | 'ads' | 'growth'; label: string }[] = [
+  const TABS: { id: 'overview' | 'platforms' | 'content' | 'ads' | 'growth' | 'results'; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'platforms', label: 'Platforms' },
     { id: 'content', label: 'Content' },
     { id: 'ads', label: 'Ads' },
     { id: 'growth', label: 'Growth' },
+    { id: 'results', label: '📈 Results' },
   ]
 
   return (
     <div className="space-y-8 max-w-5xl">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-bms-cyan/10 border border-bms-cyan/20 flex items-center justify-center flex-shrink-0">
-          <TrendingUp className="w-6 h-6 text-bms-cyan" />
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        <div className="flex items-start gap-4 flex-1">
+          <div className="w-12 h-12 rounded-xl bg-bms-cyan/10 border border-bms-cyan/20 flex items-center justify-center flex-shrink-0">
+            <TrendingUp className="w-6 h-6 text-bms-cyan" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-bms-text">Marketing Plan Generator</h1>
+            <p className="text-bms-muted text-sm mt-1">
+              Deep 5-stage brand analysis · Powered by Claude + Web Research
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-bms-text">Marketing Plan Generator</h1>
-          <p className="text-bms-muted text-sm mt-1">
-            Deep 5-stage brand analysis · Powered by Claude + Web Research
-          </p>
-        </div>
+        <button
+          onClick={() => setShowKB(v => !v)}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-xl border text-sm transition-all whitespace-nowrap',
+            showKB
+              ? 'bg-bms-cyan/10 border-bms-cyan/40 text-bms-cyan'
+              : 'border-bms-border text-bms-muted hover:text-bms-text hover:border-bms-cyan/30'
+          )}
+        >
+          <BookOpen className="w-4 h-4" />
+          Knowledge Base
+          {showKB ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
       </div>
+
+      {/* ── Inline Knowledge Base Panel ── */}
+      {showKB && (
+        <div className="bg-bms-card border border-bms-cyan/20 rounded-2xl overflow-hidden">
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-bms-border bg-bms-darker/60">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-bms-cyan" />
+              <span className="text-sm font-semibold text-bms-text">Marketing Knowledge Base</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/knowledge-base" className="text-xs text-bms-muted hover:text-bms-cyan transition-colors">
+                Open full page →
+              </Link>
+              <button onClick={() => setShowKB(false)} className="text-bms-muted hover:text-bms-text transition-colors ml-2">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Tab bar */}
+          <div className="flex gap-1.5 px-5 py-3 border-b border-bms-border overflow-x-auto">
+            {([
+              { id: 'platforms',  label: 'Platforms',   icon: Layers },
+              { id: 'industries', label: 'Industries',  icon: TrendingUp },
+              { id: 'trending',   label: "What's Working", icon: Zap },
+              { id: 'results',    label: 'Results',     icon: BarChart2 },
+              { id: 'benchmarks', label: 'Benchmarks',  icon: BarChart },
+              { id: 'skills',     label: 'Skills',      icon: Wrench },
+            ] as const).map(t => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setKbTab(t.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all whitespace-nowrap',
+                    kbTab === t.id
+                      ? 'bg-bms-cyan/10 border-bms-cyan/30 text-bms-cyan'
+                      : 'bg-bms-darker border-bms-border text-bms-muted hover:text-bms-text'
+                  )}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Tab content */}
+          <div className="p-5">
+            {/* Platforms */}
+            {kbTab === 'platforms' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {PLATFORMS.map(p => (
+                  <div key={p.id} className={cn('rounded-xl border p-4 space-y-2', p.badge.includes('pink') ? 'border-pink-500/20 bg-pink-500/5' : p.badge.includes('gray-5') ? 'border-gray-500/20 bg-gray-500/5' : p.badge.includes('blue-5') ? 'border-blue-500/20 bg-blue-500/5' : p.badge.includes('blue-4') ? 'border-blue-400/20 bg-blue-400/5' : p.badge.includes('red') ? 'border-red-500/20 bg-red-500/5' : p.badge.includes('gray-4') ? 'border-gray-400/20 bg-gray-400/5' : 'border-bms-border bg-bms-darker')}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{p.emoji}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-bms-text">{p.name}</p>
+                        <p className="text-[10px] text-bms-muted">{p.postingFrequency}</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-medium text-bms-cyan">{p.avgEngagementRate} avg engagement</p>
+                    <ul className="space-y-1">
+                      {p.whatWorkingNow.slice(0, 3).map((w, i) => (
+                        <li key={i} className="text-[10px] text-bms-muted flex items-start gap-1.5">
+                          <span className="text-bms-cyan flex-shrink-0">→</span>{w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Industries */}
+            {kbTab === 'industries' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {INDUSTRIES.map(ind => (
+                  <div key={ind.id} className="rounded-xl border border-bms-border bg-bms-darker p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{ind.emoji}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-bms-text">{ind.name}</p>
+                        <div className="flex gap-1 flex-wrap mt-0.5">
+                          {ind.topPlatforms.slice(0, 3).map((pl, i) => (
+                            <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-bms-border text-bms-muted">{pl}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-bms-muted leading-relaxed">{ind.contentStyle}</p>
+                    <p className="text-[10px] text-emerald-400 font-medium">{ind.expectedResults}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* What's Working */}
+            {kbTab === 'trending' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {TRENDING_2025.map((item, i) => (
+                  <div key={i} className={cn('rounded-xl border p-4 space-y-2', item.color)}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{item.icon}</span>
+                      <p className="text-xs font-semibold text-bms-text">{item.title}</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {item.tactics.slice(0, 3).map((t, j) => (
+                        <li key={j} className="text-[10px] text-bms-muted flex items-start gap-1.5">
+                          <span className="text-bms-cyan flex-shrink-0">→</span>{t}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[10px] text-bms-cyan font-medium">{item.roi}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Results */}
+            {kbTab === 'results' && (
+              <div className="space-y-3">
+                <div className="overflow-x-auto rounded-xl border border-bms-border">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-bms-darker border-b border-bms-border">
+                        {['Effort Level', 'Activity', 'Followers/Month', 'Engagement', 'Lead Gen', 'Time to Results'].map(h => (
+                          <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold text-bms-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {RESULTS_TABLE.map((row, i) => (
+                        <tr key={i} className={cn('border-b border-bms-border/50', i % 2 === 0 ? 'bg-bms-card' : 'bg-bms-darker/30')}>
+                          <td className="px-3 py-2">
+                            <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border', row.badge)}>{row.level}</span>
+                          </td>
+                          <td className="px-3 py-2 text-bms-muted">{row.effort}</td>
+                          <td className="px-3 py-2 font-semibold text-bms-cyan">{row.followersPerMonth}</td>
+                          <td className="px-3 py-2 text-bms-text">{row.engagementRate}</td>
+                          <td className="px-3 py-2 text-bms-text">{row.leadGen}</td>
+                          <td className="px-3 py-2 font-medium text-emerald-400">{row.timeToResults}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-bms-muted">Based on consistent, strategic posting. Results compound over 90+ days.</p>
+              </div>
+            )}
+
+            {/* Benchmarks */}
+            {kbTab === 'benchmarks' && (
+              <div className="overflow-x-auto rounded-xl border border-bms-border">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-bms-darker border-b border-bms-border">
+                      {['Industry', 'Avg Engagement', 'Follower Growth', 'Conversion Rate', 'Ad ROAS'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold text-bms-muted uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {INDUSTRY_BENCHMARKS.map((row, i) => (
+                      <tr key={i} className={cn('border-b border-bms-border/50', i % 2 === 0 ? 'bg-bms-card' : 'bg-bms-darker/30')}>
+                        <td className="px-3 py-2 font-semibold text-bms-text">{row.industry}</td>
+                        <td className="px-3 py-2 font-bold text-bms-cyan">{row.avgEngagement}</td>
+                        <td className="px-3 py-2 text-bms-text">{row.followerGrowth}</td>
+                        <td className="px-3 py-2 text-bms-text">{row.conversionRate}</td>
+                        <td className="px-3 py-2 font-semibold text-emerald-400">{row.adROAS}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Skills */}
+            {kbTab === 'skills' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {MARKETING_SKILLS.map(skill => (
+                  <div key={skill.id} className="rounded-xl border border-bms-border bg-bms-darker p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{skill.icon}</span>
+                        <p className="text-xs font-semibold text-bms-text">{skill.name}</p>
+                      </div>
+                      <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium border', skill.categoryColor)}>{skill.category}</span>
+                    </div>
+                    <p className="text-[10px] text-bms-muted leading-relaxed">{skill.description}</p>
+                    <p className="text-[9px] text-bms-cyan">{skill.whenToUse}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Input area */}
       <div className="bg-bms-card border border-bms-border rounded-2xl p-6 space-y-4">
@@ -1011,6 +1402,7 @@ export default function MarketingPlanPage() {
           {activeTab === 'growth' && (
             <GrowthTab plan={planData} quickWinsDone={quickWinsDone} setQuickWinsDone={setQuickWinsDone} />
           )}
+          {activeTab === 'results' && <ResultsTab plan={planData} />}
         </div>
       )}
 
