@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PLATFORMS, INDUSTRIES, TRENDING_2025, RESULTS_TABLE, INDUSTRY_BENCHMARKS, MARKETING_SKILLS } from '../knowledge-base/kb-data'
+import SocialAuditTab from './_tabs/SocialAuditTab'
+import type { SocialAuditData } from '@/app/api/automations/marketing-plan/social-audit/route'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1348,8 +1350,10 @@ export default function MarketingPlanPage() {
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'platforms' | 'content' | 'ads' | 'growth' | 'results'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'platforms' | 'content' | 'ads' | 'growth' | 'results' | 'social-audit'>('overview')
   const [showKB, setShowKB] = useState(false)
+  const [socialAudit, setSocialAudit] = useState<SocialAuditData | null>(null)
+  const [auditLoading, setAuditLoading] = useState(false)
   const [kbTab, setKbTab] = useState<'platforms' | 'industries' | 'trending' | 'results' | 'benchmarks' | 'skills'>('platforms')
   const [history, setHistory] = useState<HistoryRun[]>([])
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
@@ -1428,13 +1432,56 @@ export default function MarketingPlanPage() {
     return `${Math.floor(hrs / 24)}d ago`
   }
 
-  const TABS: { id: 'overview' | 'platforms' | 'content' | 'ads' | 'growth' | 'results'; label: string }[] = [
+  async function runSocialAudit() {
+    if (!url.trim() || auditLoading) return
+    setAuditLoading(true)
+    setSocialAudit(null)
+
+    const res = await fetch('/api/automations/marketing-plan/social-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        websiteUrl: url.trim(),
+        brandName: planData?.brand?.name ?? undefined,
+      }),
+    })
+
+    if (!res.ok || !res.body) {
+      setAuditLoading(false)
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done: rdDone, value } = await reader.read()
+      if (rdDone) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        try {
+          const evt = JSON.parse(line.slice(6))
+          if (evt.type === 'complete') {
+            setSocialAudit(evt.data as SocialAuditData)
+          }
+        } catch { /* ignore */ }
+      }
+    }
+    setAuditLoading(false)
+  }
+
+  const TABS: { id: 'overview' | 'platforms' | 'content' | 'ads' | 'growth' | 'results' | 'social-audit'; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'platforms', label: 'Platforms' },
     { id: 'content', label: 'Content' },
     { id: 'ads', label: 'Ads' },
     { id: 'growth', label: 'Growth' },
     { id: 'results', label: '📈 Results' },
+    { id: 'social-audit', label: '🔍 Social Audit' },
   ]
 
   return (
@@ -1755,6 +1802,15 @@ export default function MarketingPlanPage() {
             <GrowthTab plan={planData} quickWinsDone={quickWinsDone} setQuickWinsDone={setQuickWinsDone} />
           )}
           {activeTab === 'results' && <ResultsTab plan={planData} />}
+          {activeTab === 'social-audit' && (
+            <SocialAuditTab
+              websiteUrl={url}
+              brandName={planData?.brand?.name}
+              auditData={socialAudit}
+              loading={auditLoading}
+              onRun={() => { runSocialAudit() }}
+            />
+          )}
         </div>
       )}
 

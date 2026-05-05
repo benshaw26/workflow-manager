@@ -292,7 +292,7 @@ export default function MontageCreatorPage() {
         setError(`Failed to start processing: ${msg}`)
       }
     }
-  }, [references, isCloud])
+  }, [references])
 
   const handleOverrideRejection = useCallback(async (clipName: string) => {
     if (!sessionId) return
