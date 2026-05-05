@@ -64,11 +64,60 @@ const CONTENT_FORMATS = [
   'before-after', 'day-in-life', 'reaction', 'transformation', 'hot-take', 'tool-demo',
 ]
 
-const PLATFORMS = [
-  { name: 'X / Twitter', formula: 'likes×1 + retweets×2 + replies×3 + quotes×2 + bookmarks×4', insight: 'Bookmarks = highest intent signal.', color: 'text-sky-400', border: 'border-sky-500/25', bg: 'bg-sky-500/5' },
-  { name: 'Instagram',   formula: 'likes + (3×comments) + (0.1×video_views)',                  insight: 'Comments 3× weight vs passive likes.', color: 'text-pink-400', border: 'border-pink-500/25', bg: 'bg-pink-500/5' },
-  { name: 'TikTok',      formula: 'likes + (3×comments) + (2×shares) + (2×saves) + (0.05×views)', insight: 'Shares + Saves = virality signals.', color: 'text-gray-300', border: 'border-white/10', bg: 'bg-white/3' },
-  { name: 'YouTube',     formula: 'zScore × recency_boost (5%/day decay, min 0.3×)',            insight: 'z-score surfaces underdog channels.', color: 'text-red-400', border: 'border-red-500/25', bg: 'bg-red-500/5' },
+interface PlatformStats {
+  name: string
+  color: string
+  border: string
+  bg: string
+  metrics: { label: string; small: string; mid: string; large: string }[]
+}
+
+const PLATFORMS: PlatformStats[] = [
+  {
+    name: 'TikTok', color: 'text-gray-100', border: 'border-white/15', bg: 'bg-white/4',
+    metrics: [
+      { label: 'Views',     small: '1K – 10K',   mid: '10K – 500K',    large: '500K+' },
+      { label: 'Followers', small: '0 – 5K',     mid: '5K – 100K',     large: '100K+' },
+      { label: 'Likes',     small: '50 – 500',   mid: '500 – 25K',     large: '25K+' },
+      { label: 'Comments',  small: '5 – 50',     mid: '50 – 2K',       large: '2K+' },
+    ],
+  },
+  {
+    name: 'Instagram', color: 'text-pink-400', border: 'border-pink-500/25', bg: 'bg-pink-500/5',
+    metrics: [
+      { label: 'Views',     small: '500 – 5K',   mid: '5K – 100K',     large: '100K+' },
+      { label: 'Followers', small: '0 – 2K',     mid: '2K – 50K',      large: '50K+' },
+      { label: 'Likes',     small: '30 – 300',   mid: '300 – 10K',     large: '10K+' },
+      { label: 'Comments',  small: '2 – 30',     mid: '30 – 1K',       large: '1K+' },
+    ],
+  },
+  {
+    name: 'X / Twitter', color: 'text-sky-400', border: 'border-sky-500/25', bg: 'bg-sky-500/5',
+    metrics: [
+      { label: 'Views',     small: '200 – 2K',   mid: '2K – 50K',      large: '50K+' },
+      { label: 'Followers', small: '0 – 1K',     mid: '1K – 20K',      large: '20K+' },
+      { label: 'Likes',     small: '5 – 100',    mid: '100 – 3K',      large: '3K+' },
+      { label: 'Comments',  small: '1 – 20',     mid: '20 – 500',      large: '500+' },
+    ],
+  },
+  {
+    name: 'YouTube Shorts', color: 'text-red-400', border: 'border-red-500/25', bg: 'bg-red-500/5',
+    metrics: [
+      { label: 'Views',     small: '500 – 5K',   mid: '5K – 200K',     large: '200K+' },
+      { label: 'Followers', small: '0 – 1K',     mid: '1K – 50K',      large: '50K+' },
+      { label: 'Likes',     small: '20 – 200',   mid: '200 – 8K',      large: '8K+' },
+      { label: 'Comments',  small: '2 – 30',     mid: '30 – 800',      large: '800+' },
+    ],
+  },
+]
+
+// View:Like ratio quality tiers (likes ÷ views × 100 = %)
+const RATIO_TIERS = [
+  { label: 'Poor',      range: '< 1%',    color: 'text-red-400',    bar: 'bg-red-500',    width: '15%',  desc: 'Content likely shown to wrong audience or lacks appeal.' },
+  { label: 'Average',   range: '1 – 3%',  color: 'text-amber-400',  bar: 'bg-amber-400',  width: '40%',  desc: 'Typical for most creators. Room to improve hooks and pacing.' },
+  { label: 'Good',      range: '3 – 6%',  color: 'text-lime-400',   bar: 'bg-lime-400',   width: '65%',  desc: 'Strong resonance. Algorithm will push this to broader audiences.' },
+  { label: 'Excellent', range: '6 – 10%', color: 'text-bms-cyan',   bar: 'bg-bms-cyan',   width: '85%',  desc: 'Viral-tier. Indicates high emotional impact and shareability.' },
+  { label: 'Elite',     range: '> 10%',   color: 'text-purple-400', bar: 'bg-purple-400', width: '100%', desc: 'Top 1% content. Near-universal approval within audience.' },
 ]
 
 const ASSEMBLY_ROWS = [
@@ -326,33 +375,69 @@ export default function MontageKnowledge() {
 
       {/* ── Tab: Engagement Science ── */}
       {tab === 'science' && (
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 mb-1">
+        <div className="flex flex-col gap-6">
+
+          {/* View:Like Ratio Guide */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-bms-cyan" />
-              <span className="text-sm font-semibold text-bms-text">Platform Scoring Formulas</span>
+              <span className="text-sm font-semibold text-bms-text">View : Like Ratio Quality</span>
+              <span className="text-[10px] text-bms-muted">(likes ÷ views × 100)</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PLATFORMS.map(p => (
-                <div key={p.name} className={`rounded-xl border p-3 flex flex-col gap-2 ${p.border} ${p.bg}`}>
-                  <span className={`text-xs font-bold ${p.color}`}>{p.name}</span>
-                  <code className="text-[10px] font-mono text-bms-muted bg-bms-darker border border-bms-border rounded-lg px-2 py-1.5 block break-all leading-relaxed">
-                    {p.formula}
-                  </code>
-                  <p className="text-[11px] text-bms-muted">{p.insight}</p>
+            <div className="flex flex-col gap-2">
+              {RATIO_TIERS.map(tier => (
+                <div key={tier.label} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-semibold w-16 ${tier.color}`}>{tier.label}</span>
+                      <span className="text-bms-muted font-mono text-[11px]">{tier.range}</span>
+                    </div>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-bms-darker overflow-hidden">
+                    <div className={`h-full rounded-full ${tier.bar}`} style={{ width: tier.width }} />
+                  </div>
+                  <p className="text-[11px] text-bms-muted leading-relaxed">{tier.desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl border border-amber-500/20 p-3 flex flex-col gap-1" style={{ background: 'rgba(245,158,11,0.04)' }}>
-            <span className="text-xs font-semibold text-amber-400">Outlier Detection</span>
-            <code className="text-[10px] font-mono text-bms-muted">engagement_rate &gt; mean + (2.0 × std_dev)</code>
-            <p className="text-[11px] text-bms-muted leading-relaxed">
-              X-sourced ideas appear 48-72h before other platforms. Bookmark signal predicts viral spread.
-            </p>
+          {/* Platform Breakdowns */}
+          <div className="flex flex-col gap-3">
+            <span className="text-sm font-semibold text-bms-text">Platform Benchmarks</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PLATFORMS.map(p => (
+                <div key={p.name} className={`rounded-xl border p-3 flex flex-col gap-3 ${p.border} ${p.bg}`}>
+                  <span className={`text-xs font-bold ${p.color}`}>{p.name}</span>
+                  <div className="rounded-lg overflow-hidden border border-bms-border">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="border-b border-bms-border">
+                          <th className="text-left py-1.5 px-2 text-bms-muted font-medium">Metric</th>
+                          <th className="text-right py-1.5 px-2 text-bms-muted font-medium">Small</th>
+                          <th className="text-right py-1.5 px-2 text-bms-muted font-medium">Mid</th>
+                          <th className="text-right py-1.5 px-2 text-bms-muted font-medium">Large</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {p.metrics.map(m => (
+                          <tr key={m.label} className="border-b border-bms-border last:border-0">
+                            <td className="py-1.5 px-2 text-bms-text font-medium whitespace-nowrap">{m.label}</td>
+                            <td className="py-1.5 px-2 text-right text-bms-muted font-mono whitespace-nowrap">{m.small}</td>
+                            <td className="py-1.5 px-2 text-right text-bms-muted font-mono whitespace-nowrap">{m.mid}</td>
+                            <td className="py-1.5 px-2 text-right text-bms-muted font-mono whitespace-nowrap">{m.large}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-bms-muted">Small = early/niche creator · Mid = growing account · Large = established audience</p>
           </div>
 
+          {/* Video Assembly Principles */}
           <div className="flex flex-col gap-2">
             <span className="text-sm font-semibold text-bms-text">Video Assembly Principles</span>
             <div className="rounded-xl border border-bms-border bg-bms-card p-3">
