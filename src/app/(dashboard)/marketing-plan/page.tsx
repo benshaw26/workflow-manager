@@ -819,124 +819,444 @@ function GrowthTab({ plan, quickWinsDone, setQuickWinsDone }: {
 // ─── Tab: Results ─────────────────────────────────────────────────────────────
 
 const INDUSTRY_GROWTH: Record<string, { conservative: number; realistic: number; optimistic: number }> = {
-  'e-commerce':            { conservative: 150,  realistic: 400,  optimistic: 1200 },
-  'saas':                  { conservative: 100,  realistic: 250,  optimistic: 600  },
-  'hospitality':           { conservative: 200,  realistic: 600,  optimistic: 1500 },
-  'real estate':           { conservative: 150,  realistic: 350,  optimistic: 800  },
-  'fitness':               { conservative: 300,  realistic: 700,  optimistic: 2000 },
-  'food':                  { conservative: 250,  realistic: 600,  optimistic: 1800 },
-  'beauty':                { conservative: 350,  realistic: 900,  optimistic: 3000 },
-  'professional services': { conservative: 80,   realistic: 200,  optimistic: 500  },
-  'construction':          { conservative: 80,   realistic: 180,  optimistic: 400  },
-  'healthcare':            { conservative: 60,   realistic: 150,  optimistic: 350  },
+  'e-commerce':            { conservative: 150,  realistic: 500,  optimistic: 2000 },
+  'saas':                  { conservative: 100,  realistic: 300,  optimistic: 800  },
+  'hospitality':           { conservative: 200,  realistic: 700,  optimistic: 2500 },
+  'restaurant':            { conservative: 200,  realistic: 700,  optimistic: 2500 },
+  'real estate':           { conservative: 150,  realistic: 400,  optimistic: 1000 },
+  'fitness':               { conservative: 300,  realistic: 900,  optimistic: 3500 },
+  'wellness':              { conservative: 300,  realistic: 900,  optimistic: 3500 },
+  'food':                  { conservative: 250,  realistic: 700,  optimistic: 2500 },
+  'beauty':                { conservative: 400,  realistic: 1200, optimistic: 5000 },
+  'fashion':               { conservative: 400,  realistic: 1200, optimistic: 5000 },
+  'professional services': { conservative: 80,   realistic: 250,  optimistic: 600  },
+  'construction':          { conservative: 80,   realistic: 200,  optimistic: 500  },
+  'trades':                { conservative: 80,   realistic: 200,  optimistic: 500  },
+  'healthcare':            { conservative: 60,   realistic: 180,  optimistic: 400  },
+  'education':             { conservative: 150,  realistic: 400,  optimistic: 1200 },
+  'technology':            { conservative: 100,  realistic: 300,  optimistic: 800  },
+  'finance':               { conservative: 80,   realistic: 200,  optimistic: 500  },
+}
+
+// Platform-specific follower growth ranges by effort level
+const PLATFORM_GROWTH: Record<string, {
+  low: [number, number]; med: [number, number]; high: [number, number]
+  leadsMed: [number, number]; engTarget: string; timeToResults: string
+}> = {
+  instagram:  { low: [100,300],  med: [300,1000],  high: [1000,4000],   leadsMed: [3,10],  engTarget: '2–5%',       timeToResults: '4–8 weeks' },
+  tiktok:     { low: [200,700],  med: [700,3000],  high: [3000,15000],  leadsMed: [2,7],   engTarget: '5–15%',      timeToResults: '1–4 weeks' },
+  linkedin:   { low: [50,150],   med: [150,500],   high: [500,1500],    leadsMed: [10,25], engTarget: '3–7%',       timeToResults: '6–12 weeks' },
+  facebook:   { low: [30,100],   med: [100,400],   high: [400,1000],    leadsMed: [3,10],  engTarget: '1–3%',       timeToResults: '8–12 weeks' },
+  youtube:    { low: [20,80],    med: [80,400],    high: [400,3000],    leadsMed: [5,18],  engTarget: '2–5% views', timeToResults: '8–16 weeks' },
+  twitter:    { low: [50,200],   med: [200,800],   high: [800,4000],    leadsMed: [1,6],   engTarget: '0.5–2%',     timeToResults: '4–8 weeks' },
+  x:          { low: [50,200],   med: [200,800],   high: [800,4000],    leadsMed: [1,6],   engTarget: '0.5–2%',     timeToResults: '4–8 weeks' },
+  pinterest:  { low: [30,100],   med: [100,500],   high: [500,2000],    leadsMed: [2,8],   engTarget: 'High traffic',timeToResults: '12–24 weeks' },
+  threads:    { low: [50,200],   med: [200,700],   high: [700,3000],    leadsMed: [1,5],   engTarget: '1–4%',       timeToResults: '4–8 weeks' },
+  google:     { low: [0,0],      med: [0,0],       high: [0,0],         leadsMed: [8,25],  engTarget: 'N/A',        timeToResults: '4–8 weeks' },
+}
+
+// Pricing tier → avg revenue per converted lead
+const PRICING_TO_LEAD_VALUE: Record<string, { label: string; min: number; max: number }> = {
+  budget:      { label: 'Budget',     min: 25,   max: 80   },
+  economy:     { label: 'Economy',    min: 25,   max: 80   },
+  affordable:  { label: 'Affordable', min: 50,   max: 150  },
+  'mid-range': { label: 'Mid-Range',  min: 150,  max: 600  },
+  standard:    { label: 'Standard',   min: 150,  max: 600  },
+  premium:     { label: 'Premium',    min: 600,  max: 2500 },
+  luxury:      { label: 'Luxury',     min: 2000, max: 10000},
+  enterprise:  { label: 'Enterprise', min: 1000, max: 8000 },
+  b2b:         { label: 'B2B',        min: 500,  max: 4000 },
+  saas:        { label: 'SaaS',       min: 200,  max: 2500 },
+  high:        { label: 'High-End',   min: 600,  max: 2500 },
+}
+
+function getPlatformKey(platform: string): string {
+  const p = (platform ?? '').toLowerCase().replace(/[^a-z]/g, '')
+  if (p.includes('instagram')) return 'instagram'
+  if (p.includes('tiktok')) return 'tiktok'
+  if (p.includes('linkedin')) return 'linkedin'
+  if (p.includes('facebook') || p.includes('meta')) return 'facebook'
+  if (p.includes('youtube')) return 'youtube'
+  if (p.includes('twitter') || p === 'x') return 'twitter'
+  if (p.includes('pinterest')) return 'pinterest'
+  if (p.includes('threads')) return 'threads'
+  if (p.includes('google')) return 'google'
+  return 'instagram'
+}
+
+function getLeadValue(pricingTier: string) {
+  const tier = (pricingTier ?? '').toLowerCase()
+  for (const [key, val] of Object.entries(PRICING_TO_LEAD_VALUE)) {
+    if (tier.includes(key)) return val
+  }
+  return { label: 'Standard', min: 150, max: 600 }
 }
 
 function ResultsTab({ plan }: { plan: PlanData }) {
-  const industryKey = (plan.brand?.industry ?? '').toLowerCase()
-  const growth = INDUSTRY_GROWTH[industryKey] ?? { conservative: 100, realistic: 300, optimistic: 800 }
+  const brand = plan.brand ?? {}
+  const industryRaw = (brand.industry ?? '').toLowerCase()
+  // Find best matching industry key
+  const industryKey = Object.keys(INDUSTRY_GROWTH).find(k => industryRaw.includes(k)) ?? ''
+  const growth = INDUSTRY_GROWTH[industryKey] ?? { conservative: 120, realistic: 350, optimistic: 900 }
+  const leadValue = getLeadValue(brand.pricingTier ?? '')
+  const recs = plan.recommendations ?? []
+  const pillars = plan.contentStrategy?.contentPillars ?? []
+  const kpis = plan.kpis ?? []
+  const competitors = plan.competitors ?? []
+  const roadmap = plan.growthRoadmap
+  const currentScore = plan.assessment?.overallScore ?? 50
+  const projectedScore = Math.min(95, currentScore + 32)
 
-  const milestones = [
-    {
-      month: 'Month 1',
-      color: 'border-bms-cyan/30',
-      numColor: 'text-bms-cyan',
-      bg: 'bg-bms-cyan/5',
-      outcomes: [
-        'Brand voice and content pillars established',
-        `${growth.conservative}-${Math.round(growth.conservative * 1.5)} new followers across primary platforms`,
-        'Algorithm learning curve completed — reach begins expanding',
-        'First batch of high-quality content published and indexed',
-        '1-3 inbound leads or inquiries from social content',
-      ],
-    },
-    {
-      month: 'Month 2',
-      color: 'border-purple-500/30',
-      numColor: 'text-purple-400',
-      bg: 'bg-purple-500/5',
-      outcomes: [
-        'Organic reach expands to non-followers (algorithm boost)',
-        `${Math.round(growth.realistic * 0.8)}-${growth.realistic} total new followers accumulated`,
-        'Engagement rate stabilises at 2-5% (above industry average)',
-        '5-15 inbound leads or inquiries from social content',
-        'First viral or high-performing piece of content identified',
-      ],
-    },
-    {
-      month: 'Month 3',
-      color: 'border-emerald-500/30',
-      numColor: 'text-emerald-400',
-      bg: 'bg-emerald-500/5',
-      outcomes: [
-        `Compounding effect kicks in — ${growth.realistic}-${growth.optimistic} monthly follower growth`,
-        'Social becomes a consistent, predictable lead source',
-        '15-40+ inbound leads per month from content alone',
-        'Paid ads (if running) achieving 3-8x ROAS',
-        'Brand awareness measurably increased in target market',
-      ],
-    },
-  ]
+  // Total estimated monthly leads from medium effort across all recommended platforms
+  const totalMedLeads = recs.reduce((sum, rec) => {
+    const pg = PLATFORM_GROWTH[getPlatformKey(rec.platform)]
+    return pg ? sum + (pg.leadsMed[0] + pg.leadsMed[1]) / 2 : sum + 5
+  }, 0)
+
+  const conservRevenue = Math.round((totalMedLeads * 0.05) * leadValue.min)
+  const realisticRevenue = Math.round((totalMedLeads * 0.1) * ((leadValue.min + leadValue.max) / 2))
+  const optimisticRevenue = Math.round((totalMedLeads * 0.2) * leadValue.max)
 
   return (
     <div className="space-y-8">
-      {/* Projected follower growth */}
-      <div className="bg-bms-card border border-bms-border rounded-2xl p-6">
-        <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-bms-cyan" />
-          Projected Monthly Follower Growth
-          {plan.brand?.industry && (
-            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-bms-border text-bms-muted capitalize">{plan.brand.industry}</span>
+
+      {/* ── Brand snapshot header ──────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-bms-cyan/5 to-purple-500/5 border border-bms-cyan/20 rounded-2xl p-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-xl font-bold text-bms-text">
+              {brand.name ? `${brand.name} — Projected Results` : 'Your Brand — Projected Results'}
+            </h2>
+            <p className="text-sm text-bms-muted mt-1">
+              {[brand.industry, brand.geographicFocus, brand.pricingTier && `${brand.pricingTier} pricing`].filter(Boolean).join(' · ')}
+            </p>
+            {brand.targetAudience && (
+              <p className="text-xs text-bms-muted mt-1">
+                Audience: <span className="text-bms-text">{brand.targetAudience}</span>
+              </p>
+            )}
+            {brand.usps && brand.usps.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {brand.usps.slice(0, 3).map((usp, i) => (
+                  <span key={i} className="text-[9px] px-2 py-0.5 rounded-full bg-bms-cyan/10 border border-bms-cyan/20 text-bms-cyan">{usp}</span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-[10px] text-bms-muted uppercase tracking-wide">Current Score</p>
+            <p className="text-4xl font-black text-bms-text leading-none">{currentScore}<span className="text-sm font-normal text-bms-muted">/100</span></p>
+            <p className="text-xs text-emerald-400 mt-1">→ Projected 90-day: <strong>{projectedScore}/100</strong></p>
+          </div>
+        </div>
+        {/* Score bar */}
+        <div className="mt-5">
+          <div className="flex justify-between text-[10px] text-bms-muted mb-1.5">
+            <span>Current ({currentScore}/100)</span>
+            <span className="text-emerald-400">Target at 90 days ({projectedScore}/100)</span>
+          </div>
+          <div className="h-3 bg-bms-border rounded-full overflow-hidden relative">
+            <div
+              className="h-full bg-gradient-to-r from-amber-400 to-bms-cyan rounded-full"
+              style={{ width: `${currentScore}%` }}
+            />
+            <div
+              className="absolute top-0 h-full w-0.5 bg-emerald-400"
+              style={{ left: `${projectedScore}%` }}
+            />
+          </div>
+          {plan.assessment?.scoreJustification && (
+            <p className="text-[10px] text-bms-muted mt-1.5">{plan.assessment.scoreJustification}</p>
           )}
-        </h3>
-        <div className="space-y-4">
+        </div>
+        {/* Strongest / weakest */}
+        {(plan.assessment?.strongestChannel || plan.assessment?.weakestChannel) && (
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            {plan.assessment.strongestChannel && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-3 py-2">
+                <p className="text-[9px] text-emerald-400 uppercase tracking-wide mb-0.5">Strongest Channel Now</p>
+                <p className="text-xs font-semibold text-bms-text">{plan.assessment.strongestChannel}</p>
+              </div>
+            )}
+            {plan.assessment.weakestChannel && (
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2">
+                <p className="text-[9px] text-amber-400 uppercase tracking-wide mb-0.5">Biggest Opportunity</p>
+                <p className="text-xs font-semibold text-bms-text">{plan.assessment.weakestChannel}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Platform-specific projections ─────────────────────────────────── */}
+      {recs.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-bms-text mb-3 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-bms-cyan" />
+            Platform Growth Projections — {brand.name || 'Your Brand'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recs.map((rec, i) => {
+              const pgKey = getPlatformKey(rec.platform)
+              const pg = PLATFORM_GROWTH[pgKey] ?? { low: [50,200], med: [200,700], high: [700,2500], leadsMed: [3,10], engTarget: '2–5%', timeToResults: '4–8 weeks' }
+              const isTop = rec.priority?.toLowerCase().includes('high') || rec.priority?.toLowerCase().includes('primary') || i === 0
+              return (
+                <div key={i} className={cn('bg-bms-card border rounded-2xl p-5 space-y-4', isTop ? 'border-bms-cyan/30' : 'border-bms-border')}>
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-bms-text">{rec.platform}</p>
+                      <p className="text-[10px] text-bms-muted mt-0.5">{rec.postingFrequency}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className={cn(
+                        'text-[9px] px-2 py-0.5 rounded-full font-semibold border',
+                        isTop ? 'bg-bms-cyan/10 text-bms-cyan border-bms-cyan/30' : 'bg-bms-border text-bms-muted border-transparent'
+                      )}>
+                        {rec.priority}
+                      </span>
+                      <span className="text-[9px] text-bms-muted">Eng. target: {pg.engTarget}</span>
+                    </div>
+                  </div>
+
+                  {/* Follower growth tiers */}
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Low effort', range: pg.low,  color: 'bg-blue-400',    tc: 'text-blue-400'    },
+                      { label: 'Consistent', range: pg.med,  color: 'bg-bms-cyan',    tc: 'text-bms-cyan'    },
+                      { label: 'Full commit', range: pg.high, color: 'bg-emerald-400', tc: 'text-emerald-400' },
+                    ].map(tier => (
+                      <div key={tier.label}>
+                        <div className="flex items-center justify-between text-[10px] mb-0.5">
+                          <span className="text-bms-muted">{tier.label}</span>
+                          <span className={cn('font-semibold', tier.tc)}>
+                            +{tier.range[0].toLocaleString()}–{tier.range[1].toLocaleString()} followers/mo
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-bms-border rounded-full overflow-hidden">
+                          <div
+                            className={cn('h-full rounded-full', tier.color)}
+                            style={{ width: `${pg.high[1] > 0 ? (tier.range[1] / pg.high[1]) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-bms-darker rounded-xl p-2.5 text-center">
+                      <p className="text-[9px] text-bms-muted uppercase tracking-wide">Leads/mo</p>
+                      <p className="text-sm font-bold text-bms-cyan mt-0.5">{pg.leadsMed[0]}–{pg.leadsMed[1]}</p>
+                      <p className="text-[9px] text-bms-muted">medium effort</p>
+                    </div>
+                    <div className="bg-bms-darker rounded-xl p-2.5 text-center">
+                      <p className="text-[9px] text-bms-muted uppercase tracking-wide">First results</p>
+                      <p className="text-xs font-bold text-bms-text mt-0.5">{pg.timeToResults}</p>
+                    </div>
+                    <div className="bg-bms-darker rounded-xl p-2.5 text-center">
+                      <p className="text-[9px] text-bms-muted uppercase tracking-wide">Engagement</p>
+                      <p className="text-xs font-bold text-emerald-400 mt-0.5">{pg.engTarget}</p>
+                    </div>
+                  </div>
+
+                  {/* Rationale + formats */}
+                  {rec.rationale && (
+                    <p className="text-[10px] text-bms-muted leading-relaxed border-t border-bms-border pt-3">
+                      {rec.rationale}
+                    </p>
+                  )}
+                  {rec.formats && rec.formats.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {rec.formats.slice(0, 4).map((f, j) => (
+                        <span key={j} className="text-[9px] px-1.5 py-0.5 rounded bg-bms-border text-bms-muted">{f}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Revenue impact projection ──────────────────────────────────────── */}
+      <div className="bg-bms-card border border-bms-border rounded-2xl p-6 space-y-5">
+        <div>
+          <h3 className="text-sm font-semibold text-bms-text mb-1 flex items-center gap-2">
+            <BarChart className="w-4 h-4 text-purple-400" />
+            Revenue Impact Projection — {brand.name || 'Your Brand'}
+          </h3>
+          <p className="text-[10px] text-bms-muted">
+            Based on {leadValue.label} pricing (£{leadValue.min.toLocaleString()}–£{leadValue.max.toLocaleString()} avg client value)
+            {recs.length > 0 && ` across ${recs.length} recommended platform${recs.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+
+        {/* Revenue scenarios */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: 'Conservative', value: growth.conservative, color: 'bg-blue-400', textColor: 'text-blue-400', note: 'Low effort / 1-2 posts/week' },
-            { label: 'Realistic',    value: growth.realistic,    color: 'bg-bms-cyan', textColor: 'text-bms-cyan', note: 'Medium effort / 3-5 posts/week' },
-            { label: 'Optimistic',   value: growth.optimistic,   color: 'bg-emerald-400', textColor: 'text-emerald-400', note: 'High effort / daily content' },
-          ].map(tier => (
-            <div key={tier.label}>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className={cn('font-semibold', tier.textColor)}>{tier.label}</span>
-                <span className="text-bms-muted">{tier.note}</span>
-                <span className={cn('font-bold', tier.textColor)}>+{tier.value.toLocaleString()} / mo</span>
-              </div>
-              <div className="h-2 bg-bms-border rounded-full overflow-hidden">
-                <div
-                  className={cn('h-full rounded-full', tier.color)}
-                  style={{ width: `${Math.min(100, (tier.value / growth.optimistic) * 100)}%` }}
-                />
-              </div>
+            { scenario: 'Conservative', desc: 'Low commitment · 5% lead-to-client rate', value: conservRevenue, color: 'text-blue-400',    border: 'border-blue-400/20',    bg: 'bg-blue-400/5'    },
+            { scenario: 'Realistic',    desc: 'Consistent effort · 10% lead-to-client rate', value: realisticRevenue, color: 'text-bms-cyan',   border: 'border-bms-cyan/20',    bg: 'bg-bms-cyan/5'    },
+            { scenario: 'Optimistic',   desc: 'Full commitment · 20% lead-to-client rate', value: optimisticRevenue, color: 'text-emerald-400', border: 'border-emerald-400/20', bg: 'bg-emerald-400/5' },
+          ].map(s => (
+            <div key={s.scenario} className={cn('rounded-xl border p-4 space-y-1', s.border, s.bg)}>
+              <p className={cn('text-xs font-semibold', s.color)}>{s.scenario}</p>
+              <p className="text-2xl font-black text-bms-text">
+                £{s.value.toLocaleString()}
+                <span className="text-xs font-normal text-bms-muted">/mo</span>
+              </p>
+              <p className="text-[10px] text-bms-muted">{s.desc}</p>
+              <p className={cn('text-xs font-semibold pt-1', s.color)}>
+                £{(s.value * 12).toLocaleString()} projected/year
+              </p>
             </div>
           ))}
         </div>
+
+        {/* Paid ad ROI */}
+        {plan.adStrategy && plan.adStrategy.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold text-bms-muted uppercase tracking-wide mb-3">
+              Paid Ad ROI — {plan.adStrategy.slice(0, 2).map(a => a.platform).join(' + ')}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { budget: 500,  roas: [2, 4], leads: [8, 18],   label: 'Starter' },
+                { budget: 1500, roas: [3, 6], leads: [25, 50],  label: 'Growth'  },
+                { budget: 3000, roas: [4, 9], leads: [55, 110], label: 'Scale'   },
+              ].map((s, i) => (
+                <div key={i} className="bg-bms-darker rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-bms-cyan">£{s.budget.toLocaleString()}/mo</p>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-bms-border text-bms-muted">{s.label}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[9px] text-bms-muted uppercase">ROAS</p>
+                      <p className="text-sm font-bold text-emerald-400">{s.roas[0]}–{s.roas[1]}×</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-bms-muted uppercase">Leads/mo</p>
+                      <p className="text-sm font-bold text-bms-text">{s.leads[0]}–{s.leads[1]}</p>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-emerald-400 font-medium pt-1 border-t border-bms-border">
+                    Est. return: £{(s.budget * s.roas[1]).toLocaleString()}/mo revenue
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ROI projection */}
-      {plan.adStrategy && plan.adStrategy.length > 0 && (
+      {/* ── Content pillar performance forecast ───────────────────────────── */}
+      {pillars.length > 0 && (
         <div className="bg-bms-card border border-bms-border rounded-2xl p-6">
           <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
-            <BarChart className="w-4 h-4 text-purple-400" />
-            Paid Ad ROI Projection
+            <Palette className="w-4 h-4 text-pink-400" />
+            Content Pillar Performance Forecast — {brand.name || 'Your Brand'}
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { budget: '$500/mo', platforms: plan.adStrategy.slice(0, 2).map(a => a.platform).join(' + '), conservativeROAS: '2-3x', realisticROAS: '4-6x', leads: '8-15 leads' },
-              { budget: '$1,500/mo', platforms: plan.adStrategy.slice(0, 2).map(a => a.platform).join(' + '), conservativeROAS: '3-4x', realisticROAS: '5-8x', leads: '25-40 leads' },
-              { budget: '$3,000/mo', platforms: plan.adStrategy.map(a => a.platform).join(' + '), conservativeROAS: '4-5x', realisticROAS: '6-10x', leads: '50-100+ leads' },
-            ].map((scenario, i) => (
-              <div key={i} className="bg-bms-darker rounded-xl p-4 space-y-2">
-                <p className="font-bold text-bms-cyan text-base">{scenario.budget}</p>
-                <p className="text-[10px] text-bms-muted">Platforms: {scenario.platforms}</p>
-                <div>
-                  <p className="text-[9px] text-bms-muted uppercase tracking-wide">Conservative ROAS</p>
-                  <p className="text-sm font-semibold text-bms-text">{scenario.conservativeROAS}</p>
+          <div className="space-y-3">
+            {pillars.map((pillar, i) => {
+              const outcomeLabels = ['Saves & shares', 'Comments & DMs', 'Direct leads', 'Reach & discovery', 'Follower loyalty']
+              const projectedResults = [
+                '3–5× avg saves',
+                '2× avg comment rate',
+                '40–60% of inbound leads',
+                '5–8× non-follower reach',
+                'Highest repeat engagement',
+              ]
+              return (
+                <div key={i} className="flex items-center gap-4 p-3 bg-bms-darker rounded-xl">
+                  <div className="text-2xl w-9 text-center flex-shrink-0">{pillar.emoji}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-semibold text-bms-text">{pillar.name}</p>
+                      <span className="text-[10px] text-bms-muted">{pillar.percentage}% of mix</span>
+                    </div>
+                    <div className="h-1.5 bg-bms-border rounded-full overflow-hidden mb-1.5">
+                      <div
+                        className="h-full bg-gradient-to-r from-bms-cyan to-bms-purple rounded-full"
+                        style={{ width: `${pillar.percentage}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-bms-muted leading-relaxed">{pillar.description}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[9px] text-bms-muted">{outcomeLabels[i % outcomeLabels.length]}</p>
+                    <p className="text-[10px] text-bms-cyan font-medium mt-0.5">{projectedResults[i % projectedResults.length]}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[9px] text-bms-muted uppercase tracking-wide">Realistic ROAS</p>
-                  <p className="text-sm font-semibold text-emerald-400">{scenario.realisticROAS}</p>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Competitive gap forecast ───────────────────────────────────────── */}
+      {competitors.length > 0 && (
+        <div className="bg-bms-card border border-bms-border rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
+            <Users className="w-4 h-4 text-amber-400" />
+            Competitive Gap — How Long to Close It
+          </h3>
+          <div className="space-y-3">
+            {competitors.slice(0, 4).map((comp, i) => {
+              const monthsToClose = [5, 8, 12, 16][i] ?? 12
+              return (
+                <div key={i} className="flex items-center gap-4 p-3 bg-bms-darker rounded-xl flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-bms-text">{comp.name}</p>
+                    <p className="text-[10px] text-bms-muted mt-0.5">
+                      {comp.strongestPlatform} · {comp.followers} followers
+                    </p>
+                    {comp.contentStyle && (
+                      <p className="text-[10px] text-bms-muted mt-0.5">Style: {comp.contentStyle}</p>
+                    )}
+                    {comp.gap && (
+                      <p className="text-[10px] text-amber-400 mt-0.5">Gap: {comp.gap}</p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[9px] text-bms-muted uppercase tracking-wide">Est. to close gap</p>
+                    <p className="text-sm font-bold text-bms-cyan">{monthsToClose} months</p>
+                    <p className="text-[9px] text-emerald-400">with consistent execution</p>
+                  </div>
                 </div>
-                <div className="pt-1 border-t border-bms-border">
-                  <p className="text-xs text-bms-muted">{scenario.leads}</p>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-bms-muted mt-3">
+            * Estimates based on recommended platforms + consistent posting. Faster with paid ads or viral content.
+          </p>
+        </div>
+      )}
+
+      {/* ── KPI targets ────────────────────────────────────────────────────── */}
+      {kpis.length > 0 && (
+        <div className="bg-bms-card border border-bms-border rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
+            <Target className="w-4 h-4 text-bms-cyan" />
+            Your 90-Day KPI Targets
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {kpis.map((kpi, i) => (
+              <div key={i} className="bg-bms-darker rounded-xl p-4">
+                <p className="text-xs font-semibold text-bms-cyan mb-3">{kpi.platform}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Follower Growth', value: kpi.followerGrowth },
+                    { label: 'Engagement Rate', value: kpi.engagementRate },
+                    { label: 'Content Output',  value: kpi.contentOutput  },
+                    { label: 'Ad Benchmarks',   value: kpi.adBenchmarks   },
+                  ].filter(f => f.value).map(({ label, value }, j) => (
+                    <div key={j}>
+                      <p className="text-[9px] text-bms-muted uppercase tracking-wide mb-0.5">{label}</p>
+                      <p className="text-xs font-semibold text-bms-text">{value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -944,43 +1264,75 @@ function ResultsTab({ plan }: { plan: PlanData }) {
         </div>
       )}
 
-      {/* Success milestones */}
-      <div>
-        <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
-          <Target className="w-4 h-4" />
-          Success Milestones
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {milestones.map(m => (
-            <div key={m.month} className={cn('bg-bms-card border rounded-2xl p-5 space-y-3', m.color)}>
-              <div className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold', m.bg, m.numColor)}>
-                {m.month}
+      {/* ── 90-day growth roadmap ──────────────────────────────────────────── */}
+      {roadmap && (
+        <div>
+          <h3 className="text-sm font-semibold text-bms-text mb-4 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-purple-400" />
+            {brand.name ? `${brand.name}'s 90-Day Growth Roadmap` : '90-Day Growth Roadmap'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {([
+              { key: 'month1' as const, label: 'Month 1', data: roadmap.month1, color: 'border-bms-cyan/30',    tc: 'text-bms-cyan',    bg: 'bg-bms-cyan/5',    growthNote: `+${growth.conservative}–${Math.round(growth.conservative * 1.6)} followers · 1–5 leads` },
+              { key: 'month2' as const, label: 'Month 2', data: roadmap.month2, color: 'border-purple-500/30', tc: 'text-purple-400',  bg: 'bg-purple-500/5',  growthNote: `+${Math.round(growth.realistic * 0.7)}–${growth.realistic} followers · 5–20 leads` },
+              { key: 'month3' as const, label: 'Month 3', data: roadmap.month3, color: 'border-emerald-500/30',tc: 'text-emerald-400', bg: 'bg-emerald-500/5', growthNote: `+${growth.realistic}–${growth.optimistic} followers/mo · 20–60+ leads` },
+            ]).map(m => m.data && (
+              <div key={m.key} className={cn('bg-bms-card border rounded-2xl p-5 space-y-3', m.color)}>
+                <div className="flex items-center gap-2">
+                  <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full', m.bg, m.tc)}>{m.label}</span>
+                  <span className="text-xs font-semibold text-bms-text">{m.data.theme}</span>
+                </div>
+                <p className="text-[10px] text-bms-muted">{m.data.focus}</p>
+                <ul className="space-y-1.5">
+                  {(m.data.actions ?? []).map((action, j) => (
+                    <li key={j} className="flex items-start gap-2 text-xs text-bms-text">
+                      <ArrowRight className={cn('w-3 h-3 flex-shrink-0 mt-0.5', m.tc)} />
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+                <div className={cn('rounded-xl px-3 py-2 border', m.color, m.bg)}>
+                  <p className="text-[9px] text-bms-muted uppercase tracking-wide mb-0.5">Expected by end of month</p>
+                  <p className={cn('text-xs font-bold', m.tc)}>{m.growthNote}</p>
+                </div>
               </div>
-              <ul className="space-y-1.5">
-                {m.outcomes.map((outcome, j) => (
-                  <li key={j} className="flex items-start gap-2 text-xs text-bms-text">
-                    <ArrowRight className={cn('w-3 h-3 flex-shrink-0 mt-0.5', m.numColor)} />
-                    {outcome}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Knowledge Base CTA */}
+      {/* ── Quick wins ─────────────────────────────────────────────────────── */}
+      {plan.quickWins && plan.quickWins.length > 0 && (
+        <div className="bg-bms-card border border-amber-500/20 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-bms-text mb-3 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-amber-400" />
+            Quick Wins — Do These First for Fastest Results
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {plan.quickWins.map((win, i) => (
+              <div key={i} className="flex items-start gap-2 p-3 bg-amber-500/5 border border-amber-500/15 rounded-xl">
+                <span className="text-amber-400 font-bold text-xs flex-shrink-0 mt-0.5">{i + 1}.</span>
+                <p className="text-xs text-bms-text">{win}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── KB CTA ─────────────────────────────────────────────────────────── */}
       <div className="bg-bms-cyan/5 border border-bms-cyan/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <h3 className="font-semibold text-bms-text mb-1">Want deeper insights?</h3>
-          <p className="text-sm text-bms-muted">Explore platform guides, industry benchmarks, and proven 2025 strategies in the Knowledge Base.</p>
+          <h3 className="font-semibold text-bms-text mb-1">Want to go deeper?</h3>
+          <p className="text-sm text-bms-muted">
+            The Knowledge Base has platform algorithm guides, copywriting frameworks, hook formulas, and industry benchmarks.
+          </p>
         </div>
         <Link
           href="/knowledge-base"
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-bms-cyan text-bms-dark font-semibold text-sm hover:bg-bms-cyan/90 transition-colors whitespace-nowrap"
         >
           <BookOpen className="w-4 h-4" />
-          View Knowledge Base
+          Open Knowledge Base
         </Link>
       </div>
     </div>
