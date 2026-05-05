@@ -101,19 +101,35 @@ export default function MontageCreatorPage() {
 
   const eventSourceRef = useRef<EventSource | null>(null)
 
-  // Health-check the montage server directly from the browser (client-side).
-  // We cannot use a Vercel server-side proxy because Vercel's localhost ≠ user's PC.
-  // Modern browsers allow HTTPS → http://localhost fetches (W3C secure contexts spec).
-  // Note: any HTTP response (even 4xx) means the server is reachable = online.
-  // Only a network error / timeout / CORS block means offline.
+  // Health-check strategy:
+  // 1. Primary: Next.js proxy route (/api/montage/health) — server-side fetch, works when
+  //    running locally (npm run dev) with no CORS/PNA restrictions.
+  // 2. Fallback: Direct browser fetch to http://localhost:3001 — works in HTTP contexts but
+  //    can be blocked by Chrome PNA when the page is served over HTTPS.
   const checkServer = useCallback(async () => {
     setServerChecking(true)
+    try {
+      // Try the server-side proxy first — avoids browser PNA/CORS blocks
+      const proxyRes = await fetch('/api/montage/health', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(4000),
+      })
+      if (proxyRes.ok) {
+        const data = await proxyRes.json() as { online?: boolean }
+        if (data.online === true) {
+          setServerOnline(true)
+          setServerChecking(false)
+          return
+        }
+      }
+    } catch { /* proxy unreachable — try direct */ }
+
+    // Fallback: direct browser-to-localhost (works in HTTP dev env)
     try {
       await fetch(`${MONTAGE_LOCAL}/api/montage/health`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(3000),
       })
-      // Any response (200, 404, etc.) means the server is reachable
       setServerOnline(true)
     } catch {
       setServerOnline(false)
@@ -124,7 +140,7 @@ export default function MontageCreatorPage() {
 
   useEffect(() => {
     checkServer()
-    const id = setInterval(checkServer, 8000)
+    const id = setInterval(checkServer, 4000)  // check every 4s so it picks up quickly after server starts
     return () => clearInterval(id)
   }, [checkServer])
 
