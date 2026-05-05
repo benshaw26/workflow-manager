@@ -81,95 +81,133 @@ export async function POST(request: NextRequest) {
         send({ type: 'stage', stage: 4, label: 'Generating marketing plan with Claude…' })
 
         // Full prompt
-        const prompt = `You are an expert marketing strategist and brand analyst. Analyse the business at: ${websiteUrl}
+        const prompt = `You are an expert marketing strategist. Analyse the business at: ${websiteUrl}
 
-${searchContext ? `Here is research data gathered from web searches:\n\n${searchContext}\n\n` : ''}
+${searchContext ? `Web research gathered:\n\n${searchContext}\n\n` : ''}
 
-Produce a comprehensive, actionable marketing plan following ALL stages below. Be specific to THIS brand — no generic filler advice.
+Return ONLY a valid JSON object (no markdown, no explanation, no code fences). Use this exact structure:
 
----
+{
+  "brandSummary": "2-3 sentence summary of the brand",
+  "brand": {
+    "name": "Business Name",
+    "tagline": "Their tagline or value prop",
+    "industry": "Industry name",
+    "niche": "Specific niche",
+    "targetAudience": "Concise description e.g. 18-35 year old music fans UK",
+    "toneOfVoice": "e.g. Bold, energetic, direct",
+    "colors": ["#hex1", "#hex2"],
+    "pricingTier": "budget|mid-market|premium|luxury",
+    "usps": ["USP 1", "USP 2", "USP 3"],
+    "geographicFocus": "Local/National/International",
+    "products": ["Product/service 1", "Product/service 2"]
+  },
+  "socialMedia": [
+    {
+      "platform": "instagram",
+      "status": "active|inactive|not_found",
+      "handle": "@handle or unknown",
+      "followers": "e.g. ~50K or unknown",
+      "frequency": "e.g. 3x/week or unknown",
+      "contentTypes": ["reels", "stories", "carousels"],
+      "engagementLevel": "low|medium|high|unknown",
+      "score": 7,
+      "topThemes": ["theme1", "theme2"]
+    }
+  ],
+  "competitors": [
+    {
+      "name": "Competitor Name",
+      "website": "competitor.com",
+      "strongestPlatform": "instagram",
+      "followers": "e.g. 120K",
+      "contentStyle": "Brief style description",
+      "gap": "What this business can do better"
+    }
+  ],
+  "assessment": {
+    "overallScore": 6,
+    "scoreJustification": "Why this score",
+    "strongestChannel": "instagram",
+    "weakestChannel": "tiktok",
+    "brandConsistencyScore": 5,
+    "seoPresence": "Brief SEO assessment",
+    "paidAdvertising": "Any paid ads detected or not"
+  },
+  "recommendations": [
+    {
+      "platform": "instagram",
+      "priority": "primary|secondary|optional",
+      "rationale": "Why this platform",
+      "postingFrequency": "5x/week",
+      "formats": ["reels", "carousels", "stories"]
+    }
+  ],
+  "contentStrategy": {
+    "tone": "Tone guidelines",
+    "visualStyle": "Visual direction description",
+    "contentPillars": [
+      { "name": "Pillar Name", "description": "What this pillar covers", "percentage": 30, "emoji": "🎵" }
+    ],
+    "captionStyle": "Short, punchy captions with...",
+    "hashtags": {
+      "niche": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"],
+      "medium": ["#tag6", "#tag7", "#tag8", "#tag9", "#tag10"],
+      "broad": ["#tag11", "#tag12", "#tag13", "#tag14", "#tag15"]
+    },
+    "reelsStrategy": "Reels approach description",
+    "ugcOpportunities": "UGC description"
+  },
+  "adStrategy": [
+    {
+      "platform": "meta",
+      "adTypes": ["video", "carousel"],
+      "objective": "conversions",
+      "budgetPercent": 50,
+      "audienceTargeting": "Targeting description",
+      "creativeDirection": "Creative style description",
+      "messagingAngles": ["Angle 1", "Angle 2", "Angle 3"]
+    }
+  ],
+  "contentCalendar": [
+    { "day": "Monday", "platform": "instagram", "format": "Reel", "pillar": "Pillar Name", "contentType": "reel", "idea": "Brief content idea" },
+    { "day": "Tuesday", "platform": "tiktok", "format": "Video", "pillar": "Pillar Name", "contentType": "video", "idea": "Brief content idea" },
+    { "day": "Wednesday", "platform": "instagram", "format": "Story", "pillar": "Pillar Name", "contentType": "story", "idea": "Brief content idea" },
+    { "day": "Thursday", "platform": "instagram", "format": "Carousel", "pillar": "Pillar Name", "contentType": "feed", "idea": "Brief content idea" },
+    { "day": "Friday", "platform": "tiktok", "format": "Video", "pillar": "Pillar Name", "contentType": "video", "idea": "Brief content idea" },
+    { "day": "Saturday", "platform": "instagram", "format": "Reel", "pillar": "Pillar Name", "contentType": "reel", "idea": "Brief content idea" },
+    { "day": "Sunday", "platform": "instagram", "format": "Story", "pillar": "Pillar Name", "contentType": "story", "idea": "Brief content idea" }
+  ],
+  "quickWins": [
+    "Action 1",
+    "Action 2",
+    "Action 3",
+    "Action 4",
+    "Action 5",
+    "Action 6",
+    "Action 7",
+    "Action 8"
+  ],
+  "growthRoadmap": {
+    "month1": { "theme": "Foundation", "focus": "One line focus", "actions": ["Action 1", "Action 2", "Action 3", "Action 4", "Action 5"] },
+    "month2": { "theme": "Growth", "focus": "One line focus", "actions": ["Action 1", "Action 2", "Action 3", "Action 4", "Action 5"] },
+    "month3": { "theme": "Scale", "focus": "One line focus", "actions": ["Action 1", "Action 2", "Action 3", "Action 4", "Action 5"] }
+  },
+  "kpis": [
+    {
+      "platform": "instagram",
+      "followerGrowth": "+500/month",
+      "engagementRate": "3-5%",
+      "contentOutput": "5 posts/week",
+      "adBenchmarks": "CTR 1.5%, CPL £8"
+    }
+  ]
+}
 
-## STAGE 1 — BRAND IDENTITY RESEARCH
-Extract and document:
-- Business name, tagline, and value proposition
-- Industry and niche
-- Target audience (age, demographics, psychographics)
-- Brand tone of voice
-- Primary brand colours (estimate from context)
-- Core products or services offered
-- Pricing tier (budget, mid-market, premium, luxury)
-- Unique selling points (USPs)
-- Geographic focus
-
----
-
-## STAGE 2 — SOCIAL MEDIA DISCOVERY
-For each platform found (Instagram, Facebook, TikTok, YouTube, LinkedIn, X/Twitter, Pinterest, Threads), analyse:
-- Estimated follower count
-- Posting frequency
-- Content types
-- Engagement level
-- Top content themes
-
----
-
-## STAGE 3 — COMPETITOR & MARKET ANALYSIS
-Identify 3–5 direct competitors. For each:
-- Platform strengths
-- Content strategy
-- Gaps this business can exploit
-
----
-
-## STAGE 4 — CURRENT MARKETING ASSESSMENT
-- Overall digital presence score (1–10) with justification
-- Strongest/weakest channels
-- Brand consistency score (1–10)
-- SEO presence indicators
-
----
-
-## STAGE 5 — FULL MARKETING PLAN
-
-### 5A — RECOMMENDED SOCIAL MEDIA PLATFORMS
-For each platform: Priority tier, why it suits the brand, audience match, posting frequency, best formats.
-
-### 5B — CONTENT STRATEGY & BRAND STYLE GUIDE
-- Tone and voice guidelines
-- Visual style direction
-- 3–5 content pillars
-- Caption style
-- Hashtag strategy with examples
-- Story/Reels strategy
-- UGC opportunities
-
-### 5C — AD STRATEGY
-For each relevant paid channel (Meta, TikTok, Google, YouTube):
-- Ad types
-- Campaign objective
-- Audience targeting
-- Creative direction
-- Budget split %
-- Key messaging angles
-
-### 5D — CONTENT CALENDAR FRAMEWORK
-Sample weekly plan: day-by-day, platform, format, content pillar.
-
-### 5E — QUICK WINS (First 30 Days)
-8–10 immediate zero/low-budget actions.
-
-### 5F — GROWTH ROADMAP
-3-month phased plan: Month 1 Foundation → Month 2 Growth → Month 3 Scale.
-
-### 5G — KPIs & SUCCESS METRICS
-Per primary platform: follower growth target, engagement rate target, content output, ad benchmarks.
-
----
-
-Begin with a one-paragraph brand summary, then go through all stages. Use clean markdown with tables where useful.`
+Only output the JSON. No other text.`
 
         // Stream response from Claude
-        let fullPlan = ''
+        let fullText = ''
         const claudeStream = await client.messages.stream({
           model: 'claude-sonnet-4-6',
           max_tokens: 8000,
@@ -178,8 +216,23 @@ Begin with a one-paragraph brand summary, then go through all stages. Use clean 
 
         for await (const chunk of claudeStream) {
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-            fullPlan += chunk.delta.text
+            fullText += chunk.delta.text
             send({ type: 'chunk', text: chunk.delta.text })
+          }
+        }
+
+        // Parse JSON from accumulated text
+        let parsedData: object | null = null
+        try {
+          parsedData = JSON.parse(fullText)
+        } catch {
+          // Try to extract JSON from text (look for first { and last })
+          const start = fullText.indexOf('{')
+          const end = fullText.lastIndexOf('}')
+          if (start !== -1 && end !== -1 && end > start) {
+            try {
+              parsedData = JSON.parse(fullText.slice(start, end + 1))
+            } catch { /* give up */ }
           }
         }
 
@@ -189,12 +242,12 @@ Begin with a one-paragraph brand summary, then go through all stages. Use clean 
             data: {
               userId: session.user.id,
               websiteUrl: websiteUrl.trim(),
-              plan: fullPlan,
+              plan: JSON.stringify(parsedData),
             },
           })
         } catch { /* ignore */ }
 
-        send({ type: 'complete', plan: fullPlan })
+        send({ type: 'complete', data: parsedData })
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : String(err) })
       }
@@ -215,11 +268,19 @@ export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const runs = await prisma.marketingPlanRun.findMany({
+  const rawRuns = await prisma.marketingPlanRun.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
     take: 50,
     select: { id: true, websiteUrl: true, createdAt: true, plan: true },
+  })
+
+  const runs = rawRuns.map(run => {
+    let plan: object | null = null
+    try {
+      if (run.plan) plan = JSON.parse(run.plan)
+    } catch { /* fallback to null */ }
+    return { id: run.id, websiteUrl: run.websiteUrl, createdAt: run.createdAt, plan }
   })
 
   return NextResponse.json({ runs })
