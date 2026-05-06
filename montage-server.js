@@ -844,23 +844,40 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
       const refs = db.references.filter(r => referenceIds.includes(r.id));
       const refStyle = refs.length > 0 ? JSON.parse(refs[0].analysis_json ?? '{}') : {};
 
-      // ── HARD RULE: Cross-session variety — track recently used clip sequences ──
-      // Read the last 6 montage runs and build a set of "recently used" clip names
-      // so the planner actively avoids repeating the same combinations.
+      // ══════════════════════════════════════════════════════════════════════════
+      // HARD RULE — NO DUPLICATE RUNS
+      // Every run MUST produce a different output from all previous runs.
+      // Three enforced layers:
+      //   1. HARD EXCLUDE: clips used in the immediately preceding run are blocked entirely.
+      //   2. SEQUENCE HASH: if the planned clip order matches any prior run, reshuffle.
+      //   3. FREQUENCY PENALTY: clips used in older runs get a sort-priority penalty.
+      // ══════════════════════════════════════════════════════════════════════════
+
       const recentMontages = (db.montages || [])
         .filter(m => m.clips_used)
-        .slice(-6); // last 6 renders (3 run pairs)
+        .slice(-10); // last 10 montages = last 5 A/B run pairs
+
       const recentClipSets = recentMontages.map(m => {
         try { return JSON.parse(m.clips_used); } catch { return []; }
       });
-      // Flat list of clip names used recently (with frequency — used more = more penalised)
+
+      // ── Layer 1: HARD EXCLUDE — clips from the last run (last 2 montages = 1 A/B pair)
+      // These are completely removed from the candidate pool for this run.
+      const lastRunClipSets = recentClipSets.slice(-2); // last A and B from the most recent run
+      const lastRunClipNames = new Set(lastRunClipSets.flat());
+      console.log('[Variety] HARD EXCLUDE clips from last run:', [...lastRunClipNames].join(', ') || 'none');
+
+      // ── Layer 2: SEQUENCE HASH — detect and reject duplicate ordered sequences
+      const recentSequences = new Set(recentClipSets.map(s => s.join('|')));
+      const isSequenceDuplicate = (clipNames) => recentSequences.has(clipNames.join('|'));
+
+      // ── Layer 3: FREQUENCY PENALTY — older clips deprioritised in sort order
       const recentClipFreq = {};
       recentClipSets.forEach(set => set.forEach(name => {
         recentClipFreq[name] = (recentClipFreq[name] || 0) + 1;
       }));
-      // Ordered sequences used recently — for exact-match rejection
-      const recentSequences = recentClipSets.map(s => s.join('|'));
-      console.log('[Variety] Recent sequences to avoid:', recentSequences.length, '| Hot clips:', Object.keys(recentClipFreq).filter(k => recentClipFreq[k] > 1));
+
+      console.log('[Variety] Recent sequences tracked:', recentSequences.size, '| Freq-penalised clips:', Object.keys(recentClipFreq).filter(k => recentClipFreq[k] > 1).join(', ') || 'none');
 
       // Load knowledge base — split HARD RULES from general guidelines
       ensureKb(db);
@@ -922,7 +939,25 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
         return a;
       };
 
-      const passed = filterResults.filter(r => r.analysis.keep && (r.analysis.score ?? 0) >= 30);
+      const qualityPassed = filterResults.filter(r => r.analysis.keep && (r.analysis.score ?? 0) >= 30);
+
+      // ── HARD RULE Layer 1: remove clips used in the last run ──────────────────
+      // Fresh clips = not in last run. Blocked clips = in last run.
+      // If removing last-run clips would leave fewer than 3 fresh clips, fall back to
+      // allowing blocked clips (with a big sort penalty) so the pipeline doesn't stall.
+      const freshPassed   = qualityPassed.filter(r => !lastRunClipNames.has(path.basename(r.clipPath)));
+      const blockedPassed = qualityPassed.filter(r =>  lastRunClipNames.has(path.basename(r.clipPath)));
+      const passed = freshPassed.length >= 3 ? freshPassed : qualityPassed;
+
+      if (freshPassed.length < qualityPassed.length) {
+        const blockedCount = blockedPassed.length;
+        const freshCount = freshPassed.length;
+        console.log(`[Variety] Hard-excluded ${blockedCount} clip(s) from last run. Fresh pool: ${freshCount}`);
+        if (freshPassed.length < 3) {
+          console.warn('[Variety] Not enough fresh clips — allowing last-run clips as fallback to prevent stall');
+          sseEmit(sessionId, { type: 'variety_note', message: `Only ${freshCount} new clips available — some clips from the last run will be reused to fill the pool.` });
+        }
+      }
 
       // Group into quality tiers, shuffle within each tier, then concatenate.
       // This keeps the best clips roughly first while randomising which exact
@@ -932,7 +967,7 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
       const acceptable = shuffle(passed.filter(r => (r.analysis.sortScore ?? r.analysis.score ?? 0) < 40));
       const sorted     = [...excellent, ...good, ...acceptable];
 
-      // Take up to 10 clips (was 8) to give Stage 4 a larger, more varied pool
+      // Take up to 10 clips to give Stage 4 a larger, more varied pool
       const scored = sorted.slice(0, 10);
 
       let accepted = scored.map(r => r.clipPath);
@@ -1147,6 +1182,24 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
       // Randomise internal ordering within each variant pool — different sequence each run
       variantAClips = shuffleStage4(variantAClips);
       variantBClips = shuffleStage4(variantBClips);
+
+      // ── HARD RULE Layer 2: SEQUENCE HASH — reject any sequence matching a prior run ──
+      // If the planned sequence is identical to any previous run, keep reshuffling until
+      // it's unique. Cap at 8 attempts to avoid infinite loop on tiny clip pools.
+      const seqOf = (clips) => clips.map(c => path.basename(c.clipPath)).join('|');
+      let hashAttempts = 0;
+      while (isSequenceDuplicate(seqOf(variantAClips).split('|')) && hashAttempts < 8) {
+        variantAClips = shuffleStage4(variantAClips);
+        hashAttempts++;
+      }
+      hashAttempts = 0;
+      while (isSequenceDuplicate(seqOf(variantBClips).split('|')) && hashAttempts < 8) {
+        variantBClips = shuffleStage4(variantBClips);
+        hashAttempts++;
+      }
+      if (hashAttempts > 0) {
+        console.log(`[Variety] Sequence hash collision detected — reshuffled ${hashAttempts} time(s) to force unique output`);
+      }
 
       console.log('[Stage 4] Pool size:', trimmedClips.length, '| A:', variantAClips.map(c=>path.basename(c.clipPath)).join(', '), '| B:', variantBClips.map(c=>path.basename(c.clipPath)).join(', '));
 
