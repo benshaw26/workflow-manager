@@ -766,16 +766,76 @@ routes['GET /api/montage/process/scan-music'] = async (req, res) => {
   let entries;
   try { entries = fs.readdirSync(resolved, { withFileTypes: true }); }
   catch { return send(res, 422, { error: `Cannot read folder: ${resolved}` }); }
-  const files = entries
-    .filter(e => e.isFile() && AUDIO_EXTS.has(path.extname(e.name).toLowerCase()))
-    .map(e => {
-      const filePath = path.join(resolved, e.name);
-      let size = 0;
-      try { size = fs.statSync(filePath).size; } catch {}
-      return { name: e.name, path: filePath, size };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const files = [];
+  for (const e of entries) {
+    if (!e.isFile() || !AUDIO_EXTS.has(path.extname(e.name).toLowerCase())) continue;
+    const filePath = path.join(resolved, e.name);
+    let size = 0, duration = 0;
+    try { size = fs.statSync(filePath).size; } catch {}
+    try {
+      const pd = cp.execSync(`ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${filePath}"`, { encoding: 'utf-8', timeout: 6000 });
+      duration = parseFloat(pd.trim()) || 0;
+    } catch {}
+    files.push({ name: path.basename(e.name, path.extname(e.name)), path: filePath, size, duration });
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name));
   send(res, 200, { files, folder: resolved });
+};
+
+// ── Music folders persistence ─────────────────────────────────────────────────
+// GET /api/montage/music-folders
+routes['GET /api/montage/music-folders'] = (req, res) => {
+  const db = readDb();
+  send(res, 200, { folders: Array.isArray(db.music_folders) ? db.music_folders : [] });
+};
+
+// POST /api/montage/music-folders
+routes['POST /api/montage/music-folders'] = async (req, res) => {
+  const body = JSON.parse(await readBody(req));
+  const folders = Array.isArray(body.folders) ? body.folders.map(f => String(f).trim()).filter(Boolean) : [];
+  const db = readDb();
+  db.music_folders = folders;
+  writeDb(db);
+  send(res, 200, { ok: true, folders });
+};
+
+// ── Stream music file ─────────────────────────────────────────────────────────
+// GET /api/montage/stream-music?path=...
+routes['GET /api/montage/stream-music'] = (req, res) => {
+  const { searchParams } = new URL(req.url, 'http://localhost');
+  const filePath = searchParams.get('path')?.trim();
+  if (!filePath) return send(res, 400, { error: 'Missing ?path= parameter' });
+  const resolved = path.resolve(filePath);
+  if (!fs.existsSync(resolved)) return send(res, 404, { error: 'File not found' });
+  const ext = path.extname(resolved).toLowerCase();
+  const mimeMap = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.aac': 'audio/aac', '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.ogg': 'audio/ogg', '.opus': 'audio/ogg' };
+  const mime = mimeMap[ext] ?? 'audio/mpeg';
+  let stat;
+  try { stat = fs.statSync(resolved); } catch { return send(res, 404, { error: 'File not found' }); }
+  const total = stat.size;
+  const range = req.headers['range'];
+  if (range) {
+    const [, startStr, endStr] = range.match(/bytes=(\d+)-(\d*)/) ?? [];
+    const start = parseInt(startStr, 10) || 0;
+    const end   = endStr ? parseInt(endStr, 10) : total - 1;
+    const chunkSize = end - start + 1;
+    res.writeHead(206, {
+      'Content-Range':  `bytes ${start}-${end}/${total}`,
+      'Accept-Ranges':  'bytes',
+      'Content-Length': chunkSize,
+      'Content-Type':   mime,
+      'Access-Control-Allow-Origin': '*',
+    });
+    fs.createReadStream(resolved, { start, end }).pipe(res);
+  } else {
+    res.writeHead(200, {
+      'Content-Length': total,
+      'Content-Type':   mime,
+      'Accept-Ranges':  'bytes',
+      'Access-Control-Allow-Origin': '*',
+    });
+    fs.createReadStream(resolved).pipe(res);
+  }
 };
 
 // ── Knowledge Base CRUD ───────────────────────────────────────────────────────
@@ -1565,11 +1625,15 @@ Return ONLY valid JSON — no markdown, no explanation:
       sseEmit(sessionId, { type: 'stage_start', stage: 5, label: 'Auto-selecting matching soundtrack' });
 
       const AUDIO_EXTS = new Set(['.mp3', '.wav', '.aac', '.m4a', '.flac', '.ogg', '.opus']);
+      const dbForMusic = readDb();
+      const savedMusicFolders = Array.isArray(dbForMusic.music_folders) ? dbForMusic.music_folders : [];
       const MUSIC_SEARCH_DIRS = [
+        path.join(__dirname, 'montage', 'music'),   // downloaded royalty-free tracks
         path.join(__dirname, 'music-library'),
         path.join(os.homedir(), 'Music'),
         path.join(os.homedir(), 'Downloads'),
         path.join(os.homedir(), 'Desktop'),
+        ...savedMusicFolders,                        // user-configured folders from UI
       ];
 
       // Scan all music dirs for audio files
@@ -1596,13 +1660,23 @@ Return ONLY valid JSON — no markdown, no explanation:
 
       let selectedTrack = null;
 
-      if (allTracks.length > 0 && apiKey) {
+      // Music variety: collect recently-used track names (last 5 montages)
+      const recentMontagesForMusic = (dbForMusic.montages ?? []).slice(-5);
+      const recentTrackNames = new Set(
+        recentMontagesForMusic.map(m => (m.music_track ?? '').toLowerCase()).filter(Boolean)
+      );
+      // Deprioritise but don't fully exclude — only exclude if we have enough alternatives
+      const freshTracks    = allTracks.filter(t => !recentTrackNames.has(t.trackName.toLowerCase()));
+      const candidateTracks = freshTracks.length >= 3 ? freshTracks : allTracks;
+      console.log(`[Music Variety] Total: ${allTracks.length} | Recent (excluded): ${allTracks.length - candidateTracks.length} | Candidates: ${candidateTracks.length}`);
+
+      if (candidateTracks.length > 0 && apiKey) {
         // Score each track against the video's mood using Claude
         const overallMoods  = trimmedClips.map(c => c.profile?.mood).filter(Boolean);
         const overallEnergy = trimmedClips.map(c => c.profile?.energy).filter(Boolean);
         const colourProfiles = trimmedClips.map(c => c.profile?.colorProfile).filter(Boolean);
 
-        const trackList = allTracks.map((t, i) => `${i + 1}. "${t.trackName}" (${Math.round(t.duration / 60)}min)`).join('\n');
+        const trackList = candidateTracks.map((t, i) => `${i + 1}. "${t.trackName}" (${Math.round(t.duration / 60)}min)`).join('\n');
         const scoreMusicPrompt = `You are a music supervisor for a premium beauty & aesthetics brand video on TikTok/Instagram Reels.
 
 VIDEO PROFILE:
@@ -1634,15 +1708,17 @@ Reply JSON only: {"scores":[0.0,...], "reasons":["...",...],"bestIndex":0}`;
             let bestIdx = typeof mr.bestIndex === 'number' ? mr.bestIndex : 0;
             let bestScore = scores[bestIdx] ?? 0;
             scores.forEach((s, i) => { if (s > bestScore) { bestScore = s; bestIdx = i; } });
-            if (bestScore >= 0.4 && allTracks[bestIdx]) {
-              selectedTrack = { ...allTracks[bestIdx], suitabilityScore: bestScore, reason: mr.reasons?.[bestIdx] ?? '' };
+            if (bestScore >= 0.4 && candidateTracks[bestIdx]) {
+              selectedTrack = { ...candidateTracks[bestIdx], suitabilityScore: bestScore, reason: mr.reasons?.[bestIdx] ?? '' };
             }
           }
         } catch {}
       }
 
-      // Fallback: pick a random track from library if Claude scoring failed
-      if (!selectedTrack && allTracks.length > 0) {
+      // Fallback: pick a random track from candidates (or allTracks) if Claude scoring failed
+      if (!selectedTrack && candidateTracks.length > 0) {
+        selectedTrack = candidateTracks[Math.floor(Math.random() * candidateTracks.length)];
+      } else if (!selectedTrack && allTracks.length > 0) {
         selectedTrack = allTracks[Math.floor(Math.random() * allTracks.length)];
       }
 
@@ -2110,6 +2186,9 @@ const server = http.createServer(async (req, res) => {
   if (method === 'POST'   && url === '/api/montage/process/approve-combination') return routes['POST /api/montage/process/approve-combination'](req, res);
   if (method === 'POST'   && url === '/api/montage/process/select-music') return routes['POST /api/montage/process/select-music'](req, res);
   if (method === 'GET'    && url.startsWith('/api/montage/process/scan-music')) return routes['GET /api/montage/process/scan-music'](req, res);
+  if (method === 'GET'    && url === '/api/montage/music-folders')         return routes['GET /api/montage/music-folders'](req, res);
+  if (method === 'POST'   && url === '/api/montage/music-folders')         return routes['POST /api/montage/music-folders'](req, res);
+  if (method === 'GET'    && url.startsWith('/api/montage/stream-music'))  return routes['GET /api/montage/stream-music'](req, res);
   if (method === 'GET'    && url.startsWith('/api/montage/process/sse/')) return routes['GET /api/montage/process/sse'](req, res, url.split('/').pop());
   if (method === 'POST'   && url === '/api/montage/process/start')        return routes['POST /api/montage/process/start'](req, res);
 
