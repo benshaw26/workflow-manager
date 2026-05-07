@@ -858,16 +858,20 @@ routes['GET /api/montage/process/sse'] = (req, res, sessionId) => {
   const s = sessions.get(sessionId);
   if (!s) { res.write('data: ' + JSON.stringify({ type: 'error', message: 'Session not found' }) + '\n\n'); res.end(); return; }
 
+  // Disable socket-level timeout on this specific connection — FFmpeg execSync
+  // blocks the event loop, which can cause the OS to see inactivity and close sockets
+  req.socket.setTimeout(0);
+  req.socket.setKeepAlive(true, 10000);
+
   // Replay events
   res.write('data: ' + JSON.stringify({ type: 'connected' }) + '\n\n');
   s.events.forEach(e => res.write('data: ' + JSON.stringify(e) + '\n\n'));
   s.sseClients.push(res);
 
-  // Heartbeat — send a SSE comment every 20s to prevent idle-timeout disconnects
-  // (Node http keepalive + browser EventSource both need periodic data to stay alive)
+  // Heartbeat — send a SSE comment every 15s to keep TCP alive through blocked event loops
   const heartbeat = setInterval(() => {
     try { res.write(':ping\n\n'); } catch { clearInterval(heartbeat); }
-  }, 20000);
+  }, 15000);
 
   req.on('close', () => {
     clearInterval(heartbeat);
@@ -2144,4 +2148,12 @@ server.listen(PORT, '127.0.0.1', () => {
   } else {
     console.log('✅ FFmpeg detected');
   }
+});
+
+// ── Crash guards — keep the server alive even if a pipeline throws unexpectedly ──
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH GUARD] Uncaught exception — server stays alive:', err?.message ?? err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH GUARD] Unhandled promise rejection — server stays alive:', reason?.message ?? reason);
 });
