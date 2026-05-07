@@ -1658,20 +1658,29 @@ Return ONLY valid JSON — no markdown, no explanation:
         } catch {}
       }
 
-      let selectedTrack = null;
-
       // Music variety: collect recently-used track names (last 5 montages)
       const recentMontagesForMusic = (dbForMusic.montages ?? []).slice(-5);
       const recentTrackNames = new Set(
         recentMontagesForMusic.map(m => (m.music_track ?? '').toLowerCase()).filter(Boolean)
       );
-      // Deprioritise but don't fully exclude — only exclude if we have enough alternatives
+      // Deprioritise recently-used tracks — only exclude if we have enough alternatives
       const freshTracks    = allTracks.filter(t => !recentTrackNames.has(t.trackName.toLowerCase()));
       const candidateTracks = freshTracks.length >= 3 ? freshTracks : allTracks;
       console.log(`[Music Variety] Total: ${allTracks.length} | Recent (excluded): ${allTracks.length - candidateTracks.length} | Candidates: ${candidateTracks.length}`);
 
+      // Helper: pick a random beat-snapped start offset for a track
+      const pickOffset = (track, videoDurEst) => {
+        const hasHeadroom = (track.duration ?? 0) >= videoDurEst + 4;
+        const maxOffset = hasHeadroom ? Math.max(0, (track.duration ?? 0) - videoDurEst - 2) : 0;
+        const rawOffset = maxOffset > 8 ? Math.random() * maxOffset : 0;
+        return Math.round(rawOffset / 4) * 4; // snap to nearest 4s bar
+      };
+
+      let selectedTrackA = null;
+      let selectedTrackB = null;
+
       if (candidateTracks.length > 0 && apiKey) {
-        // Score each track against the video's mood using Claude
+        // Ask Claude to rank all candidates — pick top 2 for A and B
         const overallMoods  = trimmedClips.map(c => c.profile?.mood).filter(Boolean);
         const overallEnergy = trimmedClips.map(c => c.profile?.energy).filter(Boolean);
         const colourProfiles = trimmedClips.map(c => c.profile?.colorProfile).filter(Boolean);
@@ -1695,8 +1704,8 @@ REFERENCE STYLE MUSIC PROFILE (from KB):
 AVAILABLE TRACKS:
 ${trackList}
 
-Score each track 0.0-1.0 on how well it would suit this video. Consider the track name and style clues.
-Reply JSON only: {"scores":[0.0,...], "reasons":["...",...],"bestIndex":0}`;
+Score each track 0.0-1.0. Pick the best two DIFFERENT tracks for variant A (high-energy) and variant B (cinematic/smooth).
+Reply JSON only: {"scores":[0.0,...], "reasons":["...",...],"bestIndexA":0,"bestIndexB":1}`;
 
         try {
           const mt = await claudeCall(apiKey, [{ type: 'text', text: scoreMusicPrompt }], 300);
@@ -1704,42 +1713,61 @@ Reply JSON only: {"scores":[0.0,...], "reasons":["...",...],"bestIndex":0}`;
           if (mm) {
             const mr = JSON.parse(mm[0]);
             const scores = Array.isArray(mr.scores) ? mr.scores : [];
-            // Find highest-scoring track
-            let bestIdx = typeof mr.bestIndex === 'number' ? mr.bestIndex : 0;
-            let bestScore = scores[bestIdx] ?? 0;
-            scores.forEach((s, i) => { if (s > bestScore) { bestScore = s; bestIdx = i; } });
-            if (bestScore >= 0.4 && candidateTracks[bestIdx]) {
-              selectedTrack = { ...candidateTracks[bestIdx], suitabilityScore: bestScore, reason: mr.reasons?.[bestIdx] ?? '' };
+
+            // Pick best index for A
+            let idxA = typeof mr.bestIndexA === 'number' ? mr.bestIndexA : 0;
+            let scoreA = scores[idxA] ?? 0;
+            scores.forEach((s, i) => { if (s > scoreA) { scoreA = s; idxA = i; } });
+
+            // Pick best index for B — must differ from A
+            let idxB = typeof mr.bestIndexB === 'number' ? mr.bestIndexB : -1;
+            if (idxB < 0 || idxB === idxA || !candidateTracks[idxB]) {
+              // Find next best that isn't A
+              idxB = -1;
+              let scoreB = -1;
+              scores.forEach((s, i) => { if (i !== idxA && s > scoreB) { scoreB = s; idxB = i; } });
+            }
+
+            if (scoreA >= 0.3 && candidateTracks[idxA]) {
+              selectedTrackA = { ...candidateTracks[idxA], suitabilityScore: scoreA, reason: mr.reasons?.[idxA] ?? '' };
+            }
+            if (idxB >= 0 && candidateTracks[idxB]) {
+              selectedTrackB = { ...candidateTracks[idxB], suitabilityScore: scores[idxB] ?? 0.5, reason: mr.reasons?.[idxB] ?? '' };
             }
           }
         } catch {}
       }
 
-      // Fallback: pick a random track from candidates (or allTracks) if Claude scoring failed
-      if (!selectedTrack && candidateTracks.length > 0) {
-        selectedTrack = candidateTracks[Math.floor(Math.random() * candidateTracks.length)];
-      } else if (!selectedTrack && allTracks.length > 0) {
-        selectedTrack = allTracks[Math.floor(Math.random() * allTracks.length)];
+      // Fallback: random picks ensuring A ≠ B
+      if (!selectedTrackA) {
+        const pool = candidateTracks.length > 0 ? candidateTracks : allTracks;
+        selectedTrackA = pool[Math.floor(Math.random() * pool.length)] ?? null;
+      }
+      if (!selectedTrackB) {
+        const pool = (candidateTracks.length > 0 ? candidateTracks : allTracks).filter(t => t.trackName !== selectedTrackA?.trackName);
+        selectedTrackB = pool.length > 0
+          ? pool[Math.floor(Math.random() * pool.length)]
+          : selectedTrackA; // only fall back to same if library has 1 track
       }
 
-      if (selectedTrack) {
-        // Pick a random beat-snapped start offset within the track so we never use the same section twice
-        const videoDurEst = trimmedClips.reduce((s, c) => s + (c.outPoint - c.inPoint), 0);
-        // Only offset if the track is long enough to have headroom (>= video + 4s buffer)
-        const hasHeadroom = (selectedTrack.duration ?? 0) >= videoDurEst + 4;
-        const maxOffset = hasHeadroom ? Math.max(0, (selectedTrack.duration ?? 0) - videoDurEst - 2) : 0;
-        const rawOffset = maxOffset > 8 ? Math.random() * maxOffset : 0;
-        // Snap to nearest 4-second bar (approximate bar length at ~110 BPM)
-        selectedTrack.startOffset = Math.round(rawOffset / 4) * 4;
+      const videoDurEst = trimmedClips.reduce((s, c) => s + (c.outPoint - c.inPoint), 0);
 
+      if (selectedTrackA) selectedTrackA.startOffset = pickOffset(selectedTrackA, videoDurEst);
+      if (selectedTrackB) selectedTrackB.startOffset = pickOffset(selectedTrackB, videoDurEst);
+
+      // Use selectedTrackA as the "primary" for legacy music_options pause path
+      const selectedTrack = selectedTrackA;
+
+      if (selectedTrackA) {
         sseEmit(sessionId, { type: 'music_auto_selected', stage: 5,
-          trackName: selectedTrack.trackName,
-          trackPath: selectedTrack.trackPath,
-          suitabilityScore: selectedTrack.suitabilityScore ?? 1,
-          reason: selectedTrack.reason ?? 'Best mood match from library',
-          startOffset: selectedTrack.startOffset,
+          trackName: selectedTrackA.trackName,
+          trackNameB: selectedTrackB?.trackName ?? selectedTrackA.trackName,
+          trackPath: selectedTrackA.trackPath,
+          suitabilityScore: selectedTrackA.suitabilityScore ?? 1,
+          reason: selectedTrackA.reason ?? 'Best mood match from library',
+          startOffset: selectedTrackA.startOffset,
         });
-        sseEmit(sessionId, { type: 'stage_complete', stage: 5, selectedTrack: selectedTrack.trackName });
+        sseEmit(sessionId, { type: 'stage_complete', stage: 5, selectedTrack: selectedTrackA.trackName });
       } else {
         // No tracks found — pause for manual selection
         const fallbackTracks = [
@@ -1749,10 +1777,12 @@ Reply JSON only: {"scores":[0.0,...], "reasons":["...",...],"bestIndex":0}`;
         session.pauseReason = 'awaiting_music_selection';
         session.status = 'paused';
         sseEmit(sessionId, { type: 'paused', reason: 'awaiting_music_selection' });
-        selectedTrack = await new Promise(resolve => { session.musicResolve = resolve; });
+        const manualTrack = await new Promise(resolve => { session.musicResolve = resolve; });
+        selectedTrackA = manualTrack;
+        selectedTrackB = manualTrack; // manual selection — same track for both when user picks manually
         session.pauseReason = null; session.status = 'running';
         sseEmit(sessionId, { type: 'resumed' });
-        sseEmit(sessionId, { type: 'stage_complete', stage: 5, selectedTrack: selectedTrack?.trackName ?? '' });
+        sseEmit(sessionId, { type: 'stage_complete', stage: 5, selectedTrack: manualTrack?.trackName ?? '' });
       }
 
       // ── Stage 6-7: Render & Review both variants in parallel ─────────────────
@@ -1761,8 +1791,8 @@ Reply JSON only: {"scores":[0.0,...], "reasons":["...",...],"bestIndex":0}`;
       sseEmit(sessionId, { type: 'stage_start', stage: 7, label: 'AI quality review for both variants' });
 
       const [resultA, resultB] = await Promise.all([
-        renderVariant({ variantId: 'A', variantName: variantAInfo.name, clips: variantAClips, selectedTrack, sessionId, apiKey, kbEntries }),
-        renderVariant({ variantId: 'B', variantName: variantBInfo.name, clips: variantBClips, selectedTrack, sessionId, apiKey, kbEntries }),
+        renderVariant({ variantId: 'A', variantName: variantAInfo.name, clips: variantAClips, selectedTrack: selectedTrackA, sessionId, apiKey, kbEntries }),
+        renderVariant({ variantId: 'B', variantName: variantBInfo.name, clips: variantBClips, selectedTrack: selectedTrackB, sessionId, apiKey, kbEntries }),
       ]);
 
       sseEmit(sessionId, { type: 'stage_complete', stage: 6 });
@@ -1957,7 +1987,7 @@ Reply with valid JSON ONLY — start with { and end with }, no markdown fences:
       if (!Array.isArray(saveDb.learning.insights)) saveDb.learning.insights = [];
 
       // Save both A/B variants with shared batchId
-      const makeMontageSave = (result, variantInfo) => ({
+      const makeMontageSave = (result, variantInfo, track) => ({
         id: result.outputId,
         batch_id: batchId,
         variant: variantInfo.id,
@@ -1968,14 +1998,14 @@ Reply with valid JSON ONLY — start with { and end with }, no markdown fences:
         file_path: result.outputPath,
         reference_match_score: result.reviewScore,
         clips_used: JSON.stringify(result.clips.map(c => path.basename(c.clipPath))),
-        music_track: selectedTrack?.trackName ?? '',
+        music_track: track?.trackName ?? '',
         duration: result.finalDuration,
         status: 'ready',
         company_id: detectedCompanyId,
         created_at: Math.floor(Date.now() / 1000),
       });
-      saveDb.montages.push(makeMontageSave(resultA, variantAInfo));
-      saveDb.montages.push(makeMontageSave(resultB, variantBInfo));
+      saveDb.montages.push(makeMontageSave(resultA, variantAInfo, selectedTrackA));
+      saveDb.montages.push(makeMontageSave(resultB, variantBInfo, selectedTrackB));
       saveDb.learning.sessionCount = (saveDb.learning.sessionCount ?? 0) + 1;
       saveDb.learning.totalClips = (saveDb.learning.totalClips ?? 0) + allClips.length;
       writeDb(saveDb);
