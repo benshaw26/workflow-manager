@@ -863,7 +863,16 @@ routes['GET /api/montage/process/sse'] = (req, res, sessionId) => {
   s.events.forEach(e => res.write('data: ' + JSON.stringify(e) + '\n\n'));
   s.sseClients.push(res);
 
-  req.on('close', () => { s.sseClients = s.sseClients.filter(r => r !== res); });
+  // Heartbeat — send a SSE comment every 20s to prevent idle-timeout disconnects
+  // (Node http keepalive + browser EventSource both need periodic data to stay alive)
+  const heartbeat = setInterval(() => {
+    try { res.write(':ping\n\n'); } catch { clearInterval(heartbeat); }
+  }, 20000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    s.sseClients = s.sseClients.filter(r => r !== res);
+  });
 };
 
 // POST /api/montage/process/start — main pipeline
@@ -2100,6 +2109,11 @@ const server = http.createServer(async (req, res) => {
 
   send(res, 404, { error: 'Unknown endpoint: ' + url });
 });
+
+// Disable socket idle timeout so SSE connections aren't killed between pipeline stages
+server.keepAliveTimeout = 0;
+server.headersTimeout = 0;
+server.timeout = 0; // 0 = no timeout
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log('✅ Relay Montage Server running on http://localhost:' + PORT);
