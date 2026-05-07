@@ -981,9 +981,9 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
       const acceptable = shuffle(passed.filter(r => (r.analysis.sortScore ?? r.analysis.score ?? 0) < 40));
       const sorted     = [...excellent, ...good, ...acceptable];
 
-      // Take up to 16 clips — 30-60s target needs 6-10 clips at 4-8s each, so keep a
-      // generous pool so Stage 4 has enough to fill both variants without overlap.
-      const scored = sorted.slice(0, 16);
+      // No pool cap — use every clip that passed the quality filter.
+      // Stage 4 calculates how many are needed to hit the 30-60s target.
+      const scored = sorted;
 
       let accepted = scored.map(r => r.clipPath);
       session.accepted = accepted.length;
@@ -993,7 +993,6 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
         // Nothing passed — accept everything with a score, sorted randomly within score band
         console.warn('[Stage 1] No clips passed quality filter — accepting all scored clips.');
         const fallback = shuffle(filterResults.filter(r => (r.analysis.score ?? 0) >= 10))
-          .slice(0, 16)
           .map(r => r.clipPath);
         if (fallback.length === 0) {
           // Last resort — use all clips regardless of score
