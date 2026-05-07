@@ -293,6 +293,20 @@ async function renderVariant({ variantId, variantName, clips, selectedTrack, ses
   sseEmit(sessionId, { type: 'render_progress', stage: 6, variant: variantId, percent: 100, operation: `[${variantName}] Render complete` });
 
   const finalDuration = getVideoDuration(outputPath);
+
+  // ── HARD RULE: 30-60s duration check ─────────────────────────────────────────
+  const DURATION_MIN = 30;
+  const DURATION_MAX = 60;
+  if (finalDuration < DURATION_MIN) {
+    console.warn(`[HARD RULE] Variant ${variantId} is ${finalDuration.toFixed(1)}s — BELOW 30s minimum. Increase clip count or clip durations.`);
+    sseEmit(sessionId, { type: 'duration_warning', variant: variantId, duration: finalDuration, message: `Variant ${variantId} is ${finalDuration.toFixed(1)}s (below 30s target)` });
+  } else if (finalDuration > DURATION_MAX) {
+    console.warn(`[HARD RULE] Variant ${variantId} is ${finalDuration.toFixed(1)}s — ABOVE 60s maximum.`);
+    sseEmit(sessionId, { type: 'duration_warning', variant: variantId, duration: finalDuration, message: `Variant ${variantId} is ${finalDuration.toFixed(1)}s (above 60s target)` });
+  } else {
+    console.log(`[Duration] Variant ${variantId}: ${finalDuration.toFixed(1)}s ✓ (within 30-60s target)`);
+  }
+
   let reviewScore = 78;
   let corrections = ['Pacing is consistent throughout', 'Visual quality meets reference style'];
   let ruleScores = [];
@@ -967,8 +981,9 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
       const acceptable = shuffle(passed.filter(r => (r.analysis.sortScore ?? r.analysis.score ?? 0) < 40));
       const sorted     = [...excellent, ...good, ...acceptable];
 
-      // Take up to 10 clips to give Stage 4 a larger, more varied pool
-      const scored = sorted.slice(0, 10);
+      // Take up to 16 clips — 30-60s target needs 6-10 clips at 4-8s each, so keep a
+      // generous pool so Stage 4 has enough to fill both variants without overlap.
+      const scored = sorted.slice(0, 16);
 
       let accepted = scored.map(r => r.clipPath);
       session.accepted = accepted.length;
@@ -978,7 +993,7 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
         // Nothing passed — accept everything with a score, sorted randomly within score band
         console.warn('[Stage 1] No clips passed quality filter — accepting all scored clips.');
         const fallback = shuffle(filterResults.filter(r => (r.analysis.score ?? 0) >= 10))
-          .slice(0, 10)
+          .slice(0, 16)
           .map(r => r.clipPath);
         if (fallback.length === 0) {
           // Last resort — use all clips regardless of score
@@ -1080,14 +1095,14 @@ Clip duration: ${dur.toFixed(2)}s
 Content profile: ${JSON.stringify(profile)}
 Scene change timestamps detected: [${sceneChanges.map(t => t.toFixed(2)).join(', ') || 'none detected'}]
 ${kbTrimNote}
-This is a FAST-PACED brand montage. Trim AGGRESSIVELY — keep only the best 1.5-3 seconds.
+HARD RULE — TARGET MONTAGE LENGTH: 30-60 seconds total. Each clip must contribute 4-8 seconds of usable footage so the assembled montage reaches this target with 6-10 clips.
 
 Choose in_point and out_point to:
-1. Cut immediately to the most visually energetic or striking moment — skip slow build-ups
+1. Cut to the most visually interesting moment — skip slow build-ups and weak openers
 2. End before any fade-out, slowdown, or weak closing frames
-3. Target duration: 1.5-3.0 seconds (MAX 4.0 seconds for a strong reveal, NEVER more)
-4. If scene changes exist, cut to start at the strongest scene only
-5. If the clip has someone talking: trim to BEFORE they start talking or AFTER they finish — only keep the visual action
+3. Target duration: 4-8 seconds per clip (MINIMUM 3.0s, MAXIMUM 8.0s — never shorter, never longer)
+4. If scene changes exist, pick the strongest scene and use it fully (4-8s of it)
+5. If the clip has someone talking: trim to before they start or after they finish — keep only visual action
 6. Apply all hard rules and KB pacing guidelines
 
 Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "one sentence"}`;
@@ -1104,11 +1119,15 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
           } catch {}
         }
 
-        // HARD RULE: enforce max 3 seconds per clip in code regardless of Claude suggestion
-        const MAX_CLIP_SECONDS = 3.0;
+        // HARD RULE: 30-60s montage target — enforce per-clip duration range in code.
+        const MIN_CLIP_SECONDS = 3.0;
+        const MAX_CLIP_SECONDS = 8.0;
         if ((outPoint - inPoint) > MAX_CLIP_SECONDS) {
-          // Keep the most energetic section — start from inPoint, cap at 3s
           outPoint = inPoint + MAX_CLIP_SECONDS;
+        }
+        if ((outPoint - inPoint) < MIN_CLIP_SECONDS && dur >= MIN_CLIP_SECONDS) {
+          // Extend the clip to the minimum, capped at the actual clip duration
+          outPoint = Math.min(inPoint + MIN_CLIP_SECONDS, dur);
         }
 
         sseEmit(sessionId, { type: 'clip_progress', stage: 3, clipName: name, inPoint, outPoint, originalDuration: dur });
@@ -1159,10 +1178,25 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
       const byEnergy = tieredShuffle([...trimmedClips], scoreByEnergy);
       const byMood   = tieredShuffle([...trimmedClips], scoreByMood);
 
-      // Split: A draws from energy-ranked pool, B from mood-ranked pool.
-      // Pool size is randomised slightly so different numbers of clips are used each run.
-      const maxPerVariant = 4;
-      const minPerVariant = Math.max(2, Math.floor(trimmedClips.length / 2) - 1);
+      // ── HARD RULE: 30-60 second montage target ────────────────────────────────
+      // Calculate how many clips are needed so the assembled video hits 30-60s.
+      // Each clip is now 3-8s (enforced in Stage 3). Target the midpoint (~45s).
+      const TARGET_MIN_S  = 30;
+      const TARGET_MAX_S  = 60;
+      const TARGET_MID_S  = 45;
+
+      const avgClipDur = trimmedClips.length > 0
+        ? trimmedClips.reduce((s, c) => s + (c.outPoint - c.inPoint), 0) / trimmedClips.length
+        : 5;
+
+      // How many clips to reach the midpoint? Floor so we don't overshoot.
+      const clipsNeededForMid = Math.max(4, Math.ceil(TARGET_MID_S / Math.max(avgClipDur, 1)));
+      // Each variant gets half the pool, but at least clipsNeededForMid/2 clips
+      const maxPerVariant = Math.min(Math.ceil(clipsNeededForMid / 1.5), 10); // up to 10 per variant
+      const minPerVariant = Math.max(4, Math.floor(TARGET_MIN_S / Math.max(avgClipDur, 1)));
+
+      console.log(`[Stage 4] avg clip dur: ${avgClipDur.toFixed(1)}s | need ~${clipsNeededForMid} clips total | ${maxPerVariant} per variant (target 30-60s)`);
+
       const aSize = Math.min(maxPerVariant, Math.max(minPerVariant, Math.ceil(trimmedClips.length / 2)));
 
       let variantAClips = byEnergy.slice(0, aSize);
@@ -1171,10 +1205,10 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
       const bCandidates = byMood.filter(c => !aPathSet.has(c.clipPath));
       let variantBClips = bCandidates.slice(0, Math.min(maxPerVariant, bCandidates.length));
 
-      // Ensure B has at least 3 clips
-      if (variantBClips.length < 3) {
+      // Ensure B has at least minPerVariant clips for the 30s floor
+      if (variantBClips.length < minPerVariant) {
         const aByMood = byMood.filter(c => aPathSet.has(c.clipPath));
-        const extras  = aByMood.slice(-(3 - variantBClips.length));
+        const extras  = aByMood.slice(-(minPerVariant - variantBClips.length));
         variantBClips = [...variantBClips, ...extras];
         console.log(`[Stage 4] B pool small (${bCandidates.length} unique) — borrowed ${extras.length} clips from A's pool`);
       }
@@ -1241,7 +1275,9 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
   KB compliance: ${p.kbCompliance ?? 'Not assessed'}`;
           }).join('\n\n');
 
-          const variantPrompt = `You are a professional short-form video editor creating TWO CONTRASTING montage plans for TikTok/Reels/Shorts (15-25s each).
+          const variantPrompt = `You are a professional short-form video editor creating TWO CONTRASTING montage plans for TikTok/Reels/Shorts.
+
+HARD RULE — DURATION: Each variant MUST be 30-60 seconds long. Use ALL clips in your assigned pool to reach this target. Do not cut clips short or leave any out.
 
 You have full transcription data for every available clip. Use it to make intelligent, specific decisions about hooks, sequencing, and endings.
 
@@ -1389,14 +1425,14 @@ Return ONLY valid JSON — no markdown, no explanation:
       const forceUnique = (clips, planContribs, label) => {
         let seq = clips.map(c => path.basename(c.clipPath)).join('|');
         let attempts = 0;
-        while (recentSequences.includes(seq) && attempts < clips.length) {
+        while (recentSequences.has(seq) && attempts < clips.length) {
           console.warn(`[Stage 4] ${label} matches a recent run — rotating to force variety.`);
           clips = [...clips.slice(1), clips[0]]; // rotate left by 1
           seq = clips.map(c => path.basename(c.clipPath)).join('|');
           attempts++;
         }
         // If all rotations still match (very small clip pool), reverse as last resort
-        if (recentSequences.includes(seq) && clips.length > 1) {
+        if (recentSequences.has(seq) && clips.length > 1) {
           clips = [...clips].reverse();
           console.warn(`[Stage 4] ${label} — reversed as last resort to avoid repetition.`);
         }
