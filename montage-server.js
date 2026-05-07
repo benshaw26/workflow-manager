@@ -30,9 +30,11 @@ const DB_FILE      = path.join(DATA_DIR, 'db.json');
 // ── Simple JSON DB ────────────────────────────────────────────────────────────
 function readDb() {
   try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8')); } catch {}
-  return { references: [], montages: [], knowledgeBase: [], learning: { sessionCount: 0, totalClips: 0, approvedStyles: [] } };
+  return { references: [], montages: [], knowledgeBase: [], companies: [], flags: [], learning: { sessionCount: 0, totalClips: 0, approvedStyles: [] } };
 }
 function ensureKb(db) { if (!Array.isArray(db.knowledgeBase)) db.knowledgeBase = []; return db; }
+function ensureCompanies(db) { if (!Array.isArray(db.companies)) db.companies = []; return db; }
+function ensureFlags(db) { if (!Array.isArray(db.flags)) db.flags = []; return db; }
 function writeDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
 }
@@ -407,6 +409,37 @@ Reply JSON only — no other text:
     }
   } catch {}
   return { score: 50, keep: true, reason: 'Analysis failed' };
+}
+
+// ── Company detection from video frames ──────────────────────────────────────
+async function detectCompanyFromClip(clipPath, companies, apiKey) {
+  if (!apiKey || !companies.length) return null;
+  const frames = await extractFrames(clipPath, 2);
+  if (!frames.length) return null;
+  const companyList = companies.map((c, i) =>
+    `${i}: ${c.name}${c.hints ? ` (look for: ${c.hints})` : ''}`
+  ).join('\n');
+  const prompt = `You are detecting which company or brand appears in this video clip.
+
+Known companies/brands:
+${companyList}
+
+Look for: logos, uniforms, brand colours, signage, venue features, staff, equipment, branded props.
+Only assign a company if you are at least 60% confident.
+If you cannot clearly identify a match, return null.
+
+Reply JSON only: {"company_index":0,"confidence":0.75,"reason":"brief reason"} or {"company_index":null,"confidence":0,"reason":"no clear match"}`;
+  try {
+    const text = await claudeCall(apiKey, [...frameBlocks(frames), { type: 'text', text: prompt }], 200);
+    const m = text.match(/\{[\s\S]*?\}/);
+    if (m) {
+      const r = JSON.parse(m[0]);
+      if (typeof r.company_index === 'number' && r.confidence >= 0.60 && companies[r.company_index]) {
+        return { company_id: companies[r.company_index].id, confidence: r.confidence, reason: r.reason };
+      }
+    }
+  } catch {}
+  return null;
 }
 
 // ── Multipart form parser (minimal) ──────────────────────────────────────────
@@ -866,6 +899,27 @@ routes['POST /api/montage/process/start'] = async (req, res) => {
       //   2. SEQUENCE HASH: if the planned clip order matches any prior run, reshuffle.
       //   3. FREQUENCY PENALTY: clips used in older runs get a sort-priority penalty.
       // ══════════════════════════════════════════════════════════════════════════
+
+      // ── Company detection from first clip ────────────────────────────────────
+      ensureCompanies(db);
+      ensureFlags(db);
+      const dbCompanies = db.companies ?? [];
+      let detectedCompanyId = null;
+      if (dbCompanies.length > 0 && allClips.length > 0) {
+        try {
+          const detection = await detectCompanyFromClip(allClips[0], dbCompanies, apiKey);
+          if (detection) {
+            detectedCompanyId = detection.company_id;
+            const co = dbCompanies.find(c => c.id === detection.company_id);
+            console.log(`[Company] Detected "${co?.name ?? detection.company_id}" (${Math.round(detection.confidence * 100)}% confidence)`);
+            sseEmit(sessionId, { type: 'company_detected', company_id: detection.company_id, company_name: co?.name ?? '', confidence: detection.confidence, reason: detection.reason });
+          } else {
+            sseEmit(sessionId, { type: 'company_detected', company_id: null, company_name: '', confidence: 0, reason: 'No company match found with sufficient confidence' });
+          }
+        } catch (e) {
+          console.warn('[Company] Detection failed:', e?.message);
+        }
+      }
 
       const recentMontages = (db.montages || [])
         .filter(m => m.clips_used)
@@ -1810,6 +1864,7 @@ Reply with valid JSON ONLY — start with { and end with }, no markdown fences:
         music_track: selectedTrack?.trackName ?? '',
         duration: result.finalDuration,
         status: 'ready',
+        company_id: detectedCompanyId,
         created_at: Math.floor(Date.now() / 1000),
       });
       saveDb.montages.push(makeMontageSave(resultA, variantAInfo));
@@ -1846,6 +1901,88 @@ routes['POST /api/montage/montages/prefer'] = async (req, res, id) => {
   // HARD RULE: do NOT persist preferred style — storing it caused auto-style bias
   // where every subsequent run used the same style. The user chooses style manually.
   ensureKb(db);
+  writeDb(db);
+  send(res, 200, { ok: true });
+};
+
+// ── Companies CRUD ────────────────────────────────────────────────────────────
+routes['GET /api/montage/companies'] = (req, res) => {
+  const db = ensureCompanies(readDb());
+  send(res, 200, { companies: db.companies });
+};
+
+routes['POST /api/montage/companies'] = async (req, res) => {
+  const { name, hints = '' } = JSON.parse(await readBody(req));
+  if (!name?.trim()) return send(res, 400, { error: 'name is required' });
+  const db = ensureCompanies(readDb());
+  const company = { id: crypto.randomUUID(), name: name.trim(), hints: hints.trim(), created_at: Math.floor(Date.now() / 1000) };
+  db.companies.push(company);
+  writeDb(db);
+  send(res, 200, { ok: true, company });
+};
+
+routes['PUT /api/montage/companies'] = async (req, res, id) => {
+  const { name, hints } = JSON.parse(await readBody(req));
+  const db = ensureCompanies(readDb());
+  const company = db.companies.find(c => c.id === id);
+  if (!company) return send(res, 404, { error: 'Company not found' });
+  if (name !== undefined) company.name = name.trim();
+  if (hints !== undefined) company.hints = hints.trim();
+  writeDb(db);
+  send(res, 200, { ok: true, company });
+};
+
+routes['DELETE /api/montage/companies'] = (req, res, id) => {
+  const db = ensureCompanies(readDb());
+  db.companies = db.companies.filter(c => c.id !== id);
+  writeDb(db);
+  send(res, 200, { ok: true });
+};
+
+routes['POST /api/montage/montages/assign-company'] = async (req, res, id) => {
+  const { company_id } = JSON.parse(await readBody(req));
+  const db = readDb();
+  const m = db.montages.find(m => m.id === id);
+  if (!m) return send(res, 404, { error: 'Montage not found' });
+  m.company_id = company_id ?? null;
+  writeDb(db);
+  send(res, 200, { ok: true });
+};
+
+// ── Flags CRUD ─────────────────────────────────────────────────────────────────
+routes['GET /api/montage/flags'] = (req, res) => {
+  const { searchParams } = new URL(req.url, 'http://localhost');
+  const montageId = searchParams.get('montage_id');
+  const companyId = searchParams.get('company_id');
+  const db = ensureFlags(readDb());
+  let flags = db.flags;
+  if (montageId) flags = flags.filter(f => f.montage_id === montageId);
+  if (companyId) flags = flags.filter(f => f.company_id === companyId);
+  send(res, 200, { flags });
+};
+
+routes['POST /api/montage/flags'] = async (req, res) => {
+  const { montage_id, company_id, severity, category, text, timestamp_s } = JSON.parse(await readBody(req));
+  if (!montage_id || !severity || !category) return send(res, 400, { error: 'montage_id, severity, category required' });
+  const db = ensureFlags(readDb());
+  const flag = {
+    id: crypto.randomUUID(),
+    montage_id,
+    company_id: company_id ?? null,
+    severity,
+    category,
+    text: text?.trim() ?? '',
+    timestamp_s: typeof timestamp_s === 'number' ? timestamp_s : null,
+    created_at: Math.floor(Date.now() / 1000),
+  };
+  db.flags.push(flag);
+  writeDb(db);
+  send(res, 200, { ok: true, flag });
+};
+
+routes['DELETE /api/montage/flags'] = (req, res, id) => {
+  const db = ensureFlags(readDb());
+  db.flags = db.flags.filter(f => f.id !== id);
   writeDb(db);
   send(res, 200, { ok: true });
 };
@@ -1948,6 +2085,18 @@ const server = http.createServer(async (req, res) => {
   // File serving
   if (method === 'GET'    && url.startsWith('/api/montage/file/'))        return routes['GET /api/montage/file'](req, res, url.split('/').pop());
   if (method === 'GET'    && url.startsWith('/montage-uploads/'))         return routes['GET /montage-uploads'](req, res, url.split('/').pop());
+
+  // Companies
+  if (method === 'GET'    && url === '/api/montage/companies')            return routes['GET /api/montage/companies'](req, res);
+  if (method === 'POST'   && url === '/api/montage/companies')            return routes['POST /api/montage/companies'](req, res);
+  if (method === 'PUT'    && url.match(/\/api\/montage\/companies\/.+/))  return routes['PUT /api/montage/companies'](req, res, url.split('/').pop());
+  if (method === 'DELETE' && url.startsWith('/api/montage/companies/'))   return routes['DELETE /api/montage/companies'](req, res, url.split('/').pop());
+  if (method === 'POST'   && url.match(/\/api\/montage\/montages\/(.+)\/assign-company/)) return routes['POST /api/montage/montages/assign-company'](req, res, url.match(/\/api\/montage\/montages\/(.+)\/assign-company/)[1]);
+
+  // Flags
+  if (method === 'GET'    && url.startsWith('/api/montage/flags'))        return routes['GET /api/montage/flags'](req, res);
+  if (method === 'POST'   && url === '/api/montage/flags')                return routes['POST /api/montage/flags'](req, res);
+  if (method === 'DELETE' && url.startsWith('/api/montage/flags/'))       return routes['DELETE /api/montage/flags'](req, res, url.split('/').pop());
 
   send(res, 404, { error: 'Unknown endpoint: ' + url });
 });
