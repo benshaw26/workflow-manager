@@ -1157,13 +1157,13 @@ Clip duration: ${dur.toFixed(2)}s
 Content profile: ${JSON.stringify(profile)}
 Scene change timestamps detected: [${sceneChanges.map(t => t.toFixed(2)).join(', ') || 'none detected'}]
 ${kbTrimNote}
-HARD RULE — TARGET MONTAGE LENGTH: 30-60 seconds total. Each clip must contribute 4-8 seconds of usable footage so the assembled montage reaches this target with 6-10 clips.
+HARD RULE — TARGET MONTAGE LENGTH: 30-60 seconds total. Each clip contributes as much as needed to hit this target — shorter clips mean longer per-clip durations are needed.
 
 Choose in_point and out_point to:
 1. Cut to the most visually interesting moment — skip slow build-ups and weak openers
 2. End before any fade-out, slowdown, or weak closing frames
-3. Target duration: 4-8 seconds per clip (MINIMUM 3.0s, MAXIMUM 8.0s — never shorter, never longer)
-4. If scene changes exist, pick the strongest scene and use it fully (4-8s of it)
+3. Target duration: 4-15 seconds per clip (MINIMUM 3.0s, MAXIMUM 15.0s). Use longer durations when there are few clips available — never cut a clip shorter than necessary to reach 30s total
+4. If scene changes exist, pick the strongest scene
 5. If the clip has someone talking: trim to before they start or after they finish — keep only visual action
 6. Apply all hard rules and KB pacing guidelines
 
@@ -1181,9 +1181,9 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
           } catch {}
         }
 
-        // HARD RULE: 30-60s montage target — enforce per-clip duration range in code.
+        // Per-clip range: 3s minimum, 15s maximum (wider ceiling so small pools can still hit 30s)
         const MIN_CLIP_SECONDS = 3.0;
-        const MAX_CLIP_SECONDS = 8.0;
+        const MAX_CLIP_SECONDS = 15.0;
         if ((outPoint - inPoint) > MAX_CLIP_SECONDS) {
           outPoint = inPoint + MAX_CLIP_SECONDS;
         }
@@ -1241,38 +1241,57 @@ Reply JSON only: {"in_point": 0.0, "out_point": ${dur.toFixed(2)}, "reason": "on
       const byMood   = tieredShuffle([...trimmedClips], scoreByMood);
 
       // ── HARD RULE: 30-60 second montage target ────────────────────────────────
-      // Calculate how many clips are needed so the assembled video hits 30-60s.
-      // Each clip is now 3-8s (enforced in Stage 3). Target the midpoint (~45s).
-      const TARGET_MIN_S  = 30;
-      const TARGET_MAX_S  = 60;
-      const TARGET_MID_S  = 45;
+      const TARGET_MIN_S = 30;
+      const TARGET_MAX_S = 60;
+      const TARGET_MID_S = 45;
 
-      const avgClipDur = trimmedClips.length > 0
-        ? trimmedClips.reduce((s, c) => s + (c.outPoint - c.inPoint), 0) / trimmedClips.length
-        : 5;
+      // Total available duration from all trimmed clips
+      const totalPoolDur = trimmedClips.reduce((s, c) => s + (c.outPoint - c.inPoint), 0);
+      const avgClipDur   = trimmedClips.length > 0 ? totalPoolDur / trimmedClips.length : 5;
 
-      // How many clips to reach the midpoint? Floor so we don't overshoot.
-      const clipsNeededForMid = Math.max(4, Math.ceil(TARGET_MID_S / Math.max(avgClipDur, 1)));
-      // Each variant gets half the pool, but at least clipsNeededForMid/2 clips
-      const maxPerVariant = Math.min(Math.ceil(clipsNeededForMid / 1.5), 10); // up to 10 per variant
-      const minPerVariant = Math.max(4, Math.floor(TARGET_MIN_S / Math.max(avgClipDur, 1)));
+      // ── HARD RULE: if total pool duration < 30s, extend clip durations to fill the gap ──
+      // This happens when the user provides few clips. We scale each clip's outPoint up
+      // toward its original duration, proportionally, until the pool can reach 30s.
+      if (totalPoolDur < TARGET_MIN_S) {
+        const needed = TARGET_MIN_S - totalPoolDur;
+        const extendable = trimmedClips.reduce((s, c) => s + (c.duration - c.outPoint + c.inPoint), 0) || 1;
+        const ratio = Math.min(1, needed / extendable);
+        for (const c of trimmedClips) {
+          const available = c.duration - c.outPoint; // unused footage after outPoint
+          c.outPoint = Math.min(c.duration, c.outPoint + available * ratio + (c.inPoint * ratio));
+          // Also pull inPoint back toward 0 to get even more footage
+          const pullIn = c.inPoint * ratio;
+          c.inPoint = Math.max(0, c.inPoint - pullIn);
+        }
+        const newTotal = trimmedClips.reduce((s, c) => s + (c.outPoint - c.inPoint), 0);
+        console.log(`[Stage 4] Pool too short (${totalPoolDur.toFixed(1)}s) — extended clips to ${newTotal.toFixed(1)}s total`);
+      }
 
-      console.log(`[Stage 4] avg clip dur: ${avgClipDur.toFixed(1)}s | need ~${clipsNeededForMid} clips total | ${maxPerVariant} per variant (target 30-60s)`);
+      // How many clips needed to hit the 45s midpoint target
+      const clipsNeededForMid = Math.max(3, Math.ceil(TARGET_MID_S / Math.max(avgClipDur, 1)));
+      const maxPerVariant     = Math.max(clipsNeededForMid, trimmedClips.length); // never cap below what we need
 
-      const aSize = Math.min(maxPerVariant, Math.max(minPerVariant, Math.ceil(trimmedClips.length / 2)));
+      console.log(`[Stage 4] avg clip dur: ${avgClipDur.toFixed(1)}s | pool total: ${totalPoolDur.toFixed(1)}s | need ~${clipsNeededForMid} clips per variant`);
 
-      let variantAClips = byEnergy.slice(0, aSize);
-      const aPathSet = new Set(variantAClips.map(c => c.clipPath));
+      // ── Pool assignment ────────────────────────────────────────────────────────
+      // If the full pool duration >= 60s: split between A and B (different clips per variant).
+      // If the full pool duration < 60s: both variants use ALL clips in different orderings
+      // so neither variant is starved of footage.
+      const splitPool = totalPoolDur >= TARGET_MAX_S && trimmedClips.length >= 6;
 
-      const bCandidates = byMood.filter(c => !aPathSet.has(c.clipPath));
-      let variantBClips = bCandidates.slice(0, Math.min(maxPerVariant, bCandidates.length));
-
-      // Ensure B has at least minPerVariant clips for the 30s floor
-      if (variantBClips.length < minPerVariant) {
-        const aByMood = byMood.filter(c => aPathSet.has(c.clipPath));
-        const extras  = aByMood.slice(-(minPerVariant - variantBClips.length));
-        variantBClips = [...variantBClips, ...extras];
-        console.log(`[Stage 4] B pool small (${bCandidates.length} unique) — borrowed ${extras.length} clips from A's pool`);
+      let variantAClips, variantBClips;
+      if (splitPool) {
+        const aSize = Math.min(maxPerVariant, Math.ceil(trimmedClips.length / 2));
+        variantAClips = byEnergy.slice(0, aSize);
+        const aPathSet = new Set(variantAClips.map(c => c.clipPath));
+        const bCandidates = byMood.filter(c => !aPathSet.has(c.clipPath));
+        variantBClips = bCandidates.length >= 3 ? bCandidates.slice(0, aSize) : byMood.slice(0, aSize);
+        console.log('[Stage 4] Split pool: A and B use different clips');
+      } else {
+        // Small pool — both variants use all clips but in different orders
+        variantAClips = byEnergy.slice(0, maxPerVariant);
+        variantBClips = byMood.slice(0, maxPerVariant);
+        console.log('[Stage 4] Shared pool: both variants use all available clips (different order)');
       }
 
       // Randomise internal ordering within each variant pool — different sequence each run
@@ -1463,16 +1482,15 @@ Return ONLY valid JSON — no markdown, no explanation:
       })();
 
       if (seqA === seqB || sameOpening || tooMuchOverlap) {
-        console.warn('[Stage 4] Variants too similar — forcing B to use a distinct subset.');
-        // Give B the clips A didn't use, falling back to reversed if pool is too small
+        console.warn('[Stage 4] Variants too similar — forcing B to use a distinct ordering.');
         const aSet = new Set(variantAClips.map(c => c.clipPath));
         const unusedByA = trimmedClips.filter(c => !aSet.has(c.clipPath));
-        if (unusedByA.length >= 2) {
-          // Fill B with unused clips, pad with least-used A clips if needed
+        if (unusedByA.length >= 2 && splitPool) {
+          // Large pool: give B different clips (keep full count — don't cap at 4)
           const aByLeastUsed = [...variantAClips].reverse();
-          variantBClips = [...unusedByA.slice(0, 4), ...aByLeastUsed].slice(0, 4);
+          variantBClips = [...unusedByA, ...aByLeastUsed].slice(0, maxPerVariant);
         } else {
-          // Small pool — rotate B by 2 positions so opening differs
+          // Small/shared pool — rotate B so opening clip differs from A
           variantBClips = [...variantBClips.slice(2), ...variantBClips.slice(0, 2)];
         }
         variantBPlan.clipContributions = variantBClips.map((c, i) => ({
