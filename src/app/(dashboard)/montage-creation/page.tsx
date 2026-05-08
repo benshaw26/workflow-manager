@@ -6,7 +6,7 @@ import {
   AlertTriangle, Loader2, CheckCircle2, Database,
   Terminal, Copy, Check, Wifi, WifiOff, RefreshCw, X,
 } from 'lucide-react'
-import MontageDropbox from './_components/MontageDropbox'
+import MontageDropbox, { GenreContext, defaultGenreContext } from './_components/MontageDropbox'
 import MontageReference from './_components/MontageReference'
 import MontagePipeline from './_components/MontagePipeline'
 import MontageReview from './_components/MontageReview'
@@ -93,6 +93,7 @@ export default function MontageCreatorPage() {
   const [isProcessing, setIsProcessing]   = useState(false)
   const [error, setError]                 = useState<string | null>(null)
   const [rerunClipNames, setRerunClipNames] = useState<string[] | null>(null)
+  const [genreContext, setGenreContext]     = useState<GenreContext>(defaultGenreContext('property'))
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([])
   const [serverOnline, setServerOnline]   = useState<boolean | null>(null)
   const [serverChecking, setServerChecking] = useState(false)
@@ -286,7 +287,7 @@ export default function MontageCreatorPage() {
       const res = await fetch(`${API}/process/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dropboxPaths, localPaths, referenceIds }),
+        body: JSON.stringify({ dropboxPaths, localPaths, referenceIds, genreContext }),
       })
 
       if (!res.ok) {
@@ -733,6 +734,8 @@ node montage-server.js`}
                 onStartProcessing={handleStartProcessing}
                 rerunClipNames={rerunClipNames ?? undefined}
                 onRerunDismiss={() => setRerunClipNames(null)}
+                genreContext={genreContext}
+                onGenreContextChange={setGenreContext}
               />
             </motion.div>
           )}
