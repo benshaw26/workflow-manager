@@ -12,7 +12,7 @@ const PAGES = [
       'Discovers qualified local UK businesses, scores them by pain, scrapes owner contact details, and writes personalised cold emails, LinkedIn DMs, and Facebook posts — all in one dashboard.',
     icon: Star,
     color: 'cyan',
-    href: process.env.NEXT_PUBLIC_REVIEWS_AGENT_URL ?? 'http://localhost:3000',
+    href: '/admin/pages/reviews-agent',
     stats: [
       { label: 'Qualification filters', value: '6' },
       { label: 'UK regions covered', value: '11' },
