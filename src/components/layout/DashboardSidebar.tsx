@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
-import { LayoutDashboard, Zap, Calendar, LogOut, User, Bot, ShieldCheck, BookOpen } from 'lucide-react'
+import { LayoutDashboard, Zap, Calendar, LogOut, User, Bot, ShieldCheck, BookOpen, LayoutGrid } from 'lucide-react'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
@@ -27,6 +27,7 @@ const adminNavItems = [
   { label: 'Dashboard',       href: '/dashboard',                icon: LayoutDashboard },
   { label: 'Knowledge Base',  href: '/knowledge-base',           icon: BookOpen },
   { label: 'Automations',     href: '/automations',              icon: Zap },
+  { label: 'Pages',           href: '/admin/pages',              icon: LayoutGrid },
   { label: 'Book a Demo',     href: '/booking',                  icon: Calendar },
 ]
 
