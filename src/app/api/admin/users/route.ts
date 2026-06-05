@@ -39,9 +39,9 @@ const createSchema = z.object({
   username: z
     .string()
     .min(3, 'Username must be at least 3 characters')
-    .max(32)
-    .regex(/^[a-zA-Z0-9_-]+$/),
-  email: z.string().email('Invalid email'),
+    .max(32, 'Username must be 32 characters or less')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores and hyphens — no spaces'),
+  email: z.string().email('Please enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().optional(),
 })
