@@ -19,10 +19,15 @@ export async function seedAdminIfNeeded() {
     const existing = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
     if (existing) return
 
-    const adminUsername = process.env.ADMIN_USERNAME || 'admin'
-    const adminEmail    = process.env.ADMIN_EMAIL    || 'admin@bmsservices.com'
-    const adminPassword = process.env.ADMIN_PASSWORD || 'BmsAdmin2025!'
-    const adminName     = process.env.ADMIN_NAME     || 'Site Admin'
+    const adminUsername = process.env.ADMIN_USERNAME ?? 'admin'
+    const adminEmail    = process.env.ADMIN_EMAIL
+    const adminPassword = process.env.ADMIN_PASSWORD
+    const adminName     = process.env.ADMIN_NAME     ?? 'Site Admin'
+
+    if (!adminEmail || !adminPassword) {
+      console.error('[BMS] ADMIN_EMAIL and ADMIN_PASSWORD must be set — skipping admin seed')
+      return
+    }
 
     const hashed = await bcrypt.hash(adminPassword, 12)
 

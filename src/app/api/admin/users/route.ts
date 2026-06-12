@@ -28,6 +28,7 @@ export async function GET() {
       isActive: true,
       createdAt: true,
       userAutomations: { select: { automationId: true } },
+      userPages: { select: { pageId: true } },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
         id: true, name: true, username: true, email: true,
         role: true, isActive: true, createdAt: true,
         userAutomations: { select: { automationId: true } },
+      userPages: { select: { pageId: true } },
       },
     })
 

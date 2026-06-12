@@ -28,6 +28,7 @@ model User {
   sessions           Session[]
   bioCreationRuns    BioCreationRun[]
   userAutomations    UserAutomation[]
+  userPages          UserPage[]
   marketingPlanRuns  MarketingPlanRun[]
 
   @@map("users")
@@ -43,6 +44,18 @@ model UserAutomation {
 
   @@unique([userId, automationId])
   @@map("user_automations")
+}
+
+model UserPage {
+  id        String   @id @default(cuid())
+  userId    String
+  pageId    String
+  grantedAt DateTime @default(now())
+  grantedBy String   @default("system")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pageId])
+  @@map("user_pages")
 }
 
 model Account {

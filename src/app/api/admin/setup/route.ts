@@ -22,10 +22,17 @@ export async function GET() {
     return NextResponse.json({ message: 'Admin already exists', email: existing.email }, { status: 409 })
   }
 
-  const adminEmail    = process.env.ADMIN_EMAIL    ?? 'shawben381@gmail.com'
-  const adminPassword = process.env.ADMIN_PASSWORD ?? 'BmsAdmin2025!'
-  const adminName     = process.env.ADMIN_NAME     ?? 'Ben'
+  const adminEmail    = process.env.ADMIN_EMAIL
+  const adminPassword = process.env.ADMIN_PASSWORD
+  const adminName     = process.env.ADMIN_NAME     ?? 'Admin'
   const adminUsername = process.env.ADMIN_USERNAME ?? 'admin'
+
+  if (!adminEmail || !adminPassword) {
+    return NextResponse.json(
+      { error: 'ADMIN_EMAIL and ADMIN_PASSWORD environment variables must be set' },
+      { status: 500 }
+    )
+  }
 
   const hashed = await bcrypt.hash(adminPassword, 12)
 

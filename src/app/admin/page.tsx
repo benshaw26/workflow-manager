@@ -10,6 +10,21 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 
+const PAGE_IDS = [
+  { id: 'dashboard',         label: 'Dashboard' },
+  { id: 'my-automations',    label: 'My Automations' },
+  { id: 'knowledge-base',    label: 'Knowledge Base' },
+  { id: 'automations',       label: 'Automations' },
+  { id: 'booking',           label: 'Book a Demo' },
+  { id: 'bio-creation',      label: 'Bio Creation' },
+  { id: 'email-campaign',    label: 'Email Campaign' },
+  { id: 'marketing-plan',    label: 'Marketing Plan' },
+  { id: 'montage-creation',  label: 'Montage Creation' },
+  { id: 'receipt-forwarder', label: 'Receipt Forwarder' },
+  { id: 'social-scheduler',  label: 'Social Scheduler' },
+  { id: 'seo-writer',        label: 'SEO Writer' },
+]
+
 const AUTOMATION_IDS = [
   { id: 'property-analysis',  label: 'Property Analysis' },
   { id: 'invoice-creation',   label: 'Invoice Creation' },
@@ -32,6 +47,7 @@ type UserRow = {
   isActive: boolean
   createdAt: string
   userAutomations: { automationId: string }[]
+  userPages: { pageId: string }[]
 }
 
 export default function AdminPage() {
@@ -84,6 +100,15 @@ export default function AdminPage() {
     await fetch(`/api/admin/users/${id}`, { method: 'DELETE' })
     await fetchUsers()
     setDeletingId(null)
+  }
+
+  async function togglePage(userId: string, pageId: string, assigned: boolean) {
+    await fetch(`/api/admin/users/${userId}/pages`, {
+      method: assigned ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageId }),
+    })
+    await fetchUsers()
   }
 
   async function toggleAutomation(userId: string, automationId: string, assigned: boolean) {
@@ -163,6 +188,8 @@ export default function AdminPage() {
             const assignedIds = user.userAutomations.map((a) => a.automationId)
             const isExpanded = expandedId === user.id
 
+            const assignedPages = user.userPages.map((p) => p.pageId)
+
             return (
               <motion.div
                 key={user.id}
@@ -210,10 +237,16 @@ export default function AdminPage() {
                     <p className="text-xs text-bms-muted truncate mt-0.5">{user.email}</p>
                   </div>
 
-                  {/* Automation count */}
-                  <div className="text-center flex-shrink-0 hidden sm:block">
-                    <p className="text-lg font-bold text-bms-text font-mono">{assignedIds.length}</p>
-                    <p className="text-xs text-bms-muted">automations</p>
+                  {/* Counts */}
+                  <div className="flex gap-4 flex-shrink-0 hidden sm:flex">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-bms-text font-mono">{assignedIds.length}</p>
+                      <p className="text-xs text-bms-muted">automations</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-bms-text font-mono">{assignedPages.length}</p>
+                      <p className="text-xs text-bms-muted">pages</p>
+                    </div>
                   </div>
 
                   {/* Actions */}
@@ -265,36 +298,73 @@ export default function AdminPage() {
                       transition={{ duration: 0.2 }}
                       className="border-t border-bms-border overflow-hidden"
                     >
-                      <div className="px-5 py-4">
-                        <p className="text-xs font-semibold text-bms-muted uppercase tracking-wider mb-3">
-                          Automation Access
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {AUTOMATION_IDS.map(({ id, label }) => {
-                            const assigned = assignedIds.includes(id)
-                            return (
-                              <button
-                                key={id}
-                                onClick={() => toggleAutomation(user.id, id, assigned)}
-                                className={cn(
-                                  'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all text-left',
-                                  assigned
-                                    ? 'border-bms-cyan/40 bg-bms-cyan/10 text-bms-cyan'
-                                    : 'border-bms-border bg-bms-darker/50 text-bms-muted hover:border-bms-border/80 hover:text-bms-text'
-                                )}
-                              >
-                                <div className={cn(
-                                  'w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border',
-                                  assigned
-                                    ? 'bg-bms-cyan border-bms-cyan'
-                                    : 'border-bms-border'
-                                )}>
-                                  {assigned && <Check className="w-2.5 h-2.5 text-bms-dark" />}
-                                </div>
-                                <span className="truncate text-xs">{label}</span>
-                              </button>
-                            )
-                          })}
+                      <div className="px-5 py-4 space-y-5">
+                        {/* Page Access */}
+                        <div>
+                          <p className="text-xs font-semibold text-bms-muted uppercase tracking-wider mb-3">
+                            Page Access
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {PAGE_IDS.map(({ id, label }) => {
+                              const assigned = assignedPages.includes(id)
+                              return (
+                                <button
+                                  key={id}
+                                  onClick={() => togglePage(user.id, id, assigned)}
+                                  className={cn(
+                                    'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all text-left',
+                                    assigned
+                                      ? 'border-bms-cyan/40 bg-bms-cyan/10 text-bms-cyan'
+                                      : 'border-bms-border bg-bms-darker/50 text-bms-muted hover:border-bms-border/80 hover:text-bms-text'
+                                  )}
+                                >
+                                  <div className={cn(
+                                    'w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border',
+                                    assigned
+                                      ? 'bg-bms-cyan border-bms-cyan'
+                                      : 'border-bms-border'
+                                  )}>
+                                    {assigned && <Check className="w-2.5 h-2.5 text-bms-dark" />}
+                                  </div>
+                                  <span className="truncate text-xs">{label}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Automation Access */}
+                        <div>
+                          <p className="text-xs font-semibold text-bms-muted uppercase tracking-wider mb-3">
+                            Automation Access
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {AUTOMATION_IDS.map(({ id, label }) => {
+                              const assigned = assignedIds.includes(id)
+                              return (
+                                <button
+                                  key={id}
+                                  onClick={() => toggleAutomation(user.id, id, assigned)}
+                                  className={cn(
+                                    'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all text-left',
+                                    assigned
+                                      ? 'border-bms-cyan/40 bg-bms-cyan/10 text-bms-cyan'
+                                      : 'border-bms-border bg-bms-darker/50 text-bms-muted hover:border-bms-border/80 hover:text-bms-text'
+                                  )}
+                                >
+                                  <div className={cn(
+                                    'w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border',
+                                    assigned
+                                      ? 'bg-bms-cyan border-bms-cyan'
+                                      : 'border-bms-border'
+                                  )}>
+                                    {assigned && <Check className="w-2.5 h-2.5 text-bms-dark" />}
+                                  </div>
+                                  <span className="truncate text-xs">{label}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     </motion.div>
